@@ -172,23 +172,22 @@
 #>
 
 function
-Convert-WindowsImage
-{
+Convert-WindowsImage {
     [CmdletBinding(
 
         DefaultParameterSetName = "DiskLayout",
-        HelpURI                 =
-            "https://github.com/Microsoft/Virtualization-Documentation/tree/master/hyperv-tools/Convert-WindowsImage"
+        HelpURI =
+        "https://github.com/Microsoft/Virtualization-Documentation/tree/master/hyperv-tools/Convert-WindowsImage"
     )]
 
     param(
         [Parameter(
-            ParameterSetName  = "DiskLayout",
-            Mandatory         = $True,
+            ParameterSetName = "DiskLayout",
+            Mandatory = $True,
             ValueFromPipeline = $True)]
         [Parameter(
-            ParameterSetName  = "PartitionStyle",
-            Mandatory         = $True,
+            ParameterSetName = "PartitionStyle",
+            Mandatory = $True,
             ValueFromPipeline = $True)]
         [Alias("WIM")]
         [string]
@@ -196,8 +195,8 @@ Convert-WindowsImage
         [ValidateScript(
             {
 
-              # This helps to work around the issue when PowerShell does not immediately
-              # recognize newly mounted drives
+                # This helps to work around the issue when PowerShell does not immediately
+                # recognize newly mounted drives
                 $Drive = Get-PSDrive
                 Test-Path -Path ( Resolve-Path -Path $PSItem ).Path
             }
@@ -277,7 +276,7 @@ Convert-WindowsImage
 
         [Parameter(
             ParameterSetName = "DiskLayout",
-            Mandatory        = $True
+            Mandatory = $True
         )]
         [Alias("Layout")]
         [string]
@@ -291,7 +290,7 @@ Convert-WindowsImage
 
         [Parameter(
             ParameterSetName = "PartitionStyle",
-            Mandatory        = $True
+            Mandatory = $True
         )]
         [string]
         [ValidateNotNullOrEmpty()]
@@ -394,7 +393,7 @@ Convert-WindowsImage
         [switch]
         $ApplyEA = $false,
 
-        [Parameter(ParameterSetName="UI")]
+        [Parameter(ParameterSetName = "UI")]
         [switch]
         $ShowUI,
 
@@ -405,252 +404,246 @@ Convert-WindowsImage
         $BcdLocale
     )
 
-   #region Code
+    #region Code
 
-  # Begin Dynamic Parameters
-  # Create the parameters for the various types of debugging.
+    # Begin Dynamic Parameters
+    # Create the parameters for the various types of debugging.
 
     DynamicParam {
 
-      # Set up the dynamic parameters.
-      # Dynamic parameters are only available if certain conditions are met, so they'll only show up
-      # as valid parameters when those conditions apply.  Here, the conditions are based on the value of
-      # the EnableDebugger parameter.  Depending on which of a set of values is the specified argument
-      # for EnableDebugger, different parameters will light up, as outlined below.
+        # Set up the dynamic parameters.
+        # Dynamic parameters are only available if certain conditions are met, so they'll only show up
+        # as valid parameters when those conditions apply.  Here, the conditions are based on the value of
+        # the EnableDebugger parameter.  Depending on which of a set of values is the specified argument
+        # for EnableDebugger, different parameters will light up, as outlined below.
 
         $parameterDictionary = New-Object -TypeName "System.Management.Automation.RuntimeDefinedParameterDictionary"
 
-        If (Test-Path -Path "Variable:\EnableDebugger")
-        {
-            Switch ($EnableDebugger)
-            {
-                "Serial"
-                {
+        If (Test-Path -Path "Variable:\EnableDebugger") {
+            Switch ($EnableDebugger) {
+                "Serial" {
                     #region ComPort
 
-                    $ComPortAttr                   = New-Object System.Management.Automation.ParameterAttribute
-                    $ComPortAttr.ParameterSetName  = "__AllParameterSets"
-                    $ComPortAttr.Mandatory         = $false
+                    $ComPortAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $ComPortAttr.ParameterSetName = "__AllParameterSets"
+                    $ComPortAttr.Mandatory = $false
 
-                    $ComPortValidator              = New-Object System.Management.Automation.ValidateRangeAttribute(
-                                                        1,
-                                                        10   # Is that a good maximum?
-                                                     )
+                    $ComPortValidator = New-Object System.Management.Automation.ValidateRangeAttribute(
+                        1,
+                        10   # Is that a good maximum?
+                    )
 
-                    $ComPortNotNull                = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $ComPortNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $ComPortAttrCollection         = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $ComPortAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $ComPortAttrCollection.Add($ComPortAttr)
                     $ComPortAttrCollection.Add($ComPortValidator)
                     $ComPortAttrCollection.Add($ComPortNotNull)
 
-                    $ComPort                       = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                        "ComPort",
-                                                        [UInt16],
-                                                        $ComPortAttrCollection
-                                                     )
+                    $ComPort = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "ComPort",
+                        [UInt16],
+                        $ComPortAttrCollection
+                    )
 
                     # By default, use COM1
-                    $ComPort.Value                 = 1
+                    $ComPort.Value = 1
                     $parameterDictionary.Add("ComPort", $ComPort)
                     #endregion ComPort
 
                     #region BaudRate
-                    $BaudRateAttr                  = New-Object System.Management.Automation.ParameterAttribute
+                    $BaudRateAttr = New-Object System.Management.Automation.ParameterAttribute
                     $BaudRateAttr.ParameterSetName = "__AllParameterSets"
-                    $BaudRateAttr.Mandatory        = $false
+                    $BaudRateAttr.Mandatory = $false
 
-                    $BaudRateValidator             = New-Object System.Management.Automation.ValidateSetAttribute(
-                                                        9600, 19200,38400, 57600, 115200
-                                                     )
+                    $BaudRateValidator = New-Object System.Management.Automation.ValidateSetAttribute(
+                        9600, 19200, 38400, 57600, 115200
+                    )
 
-                    $BaudRateNotNull               = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $BaudRateNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $BaudRateAttrCollection        = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $BaudRateAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $BaudRateAttrCollection.Add($BaudRateAttr)
                     $BaudRateAttrCollection.Add($BaudRateValidator)
                     $BaudRateAttrCollection.Add($BaudRateNotNull)
 
-                    $BaudRate                      = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "BaudRate",
-                                                         [UInt32],
-                                                         $BaudRateAttrCollection
-                                                     )
+                    $BaudRate = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "BaudRate",
+                        [UInt32],
+                        $BaudRateAttrCollection
+                    )
 
                     # By default, use 115,200.
-                    $BaudRate.Value                = 115200
+                    $BaudRate.Value = 115200
                     $parameterDictionary.Add("BaudRate", $BaudRate)
                     #endregion BaudRate
 
                     break
                 }
 
-                "1394"
-                {
-                    $ChannelAttr                   = New-Object System.Management.Automation.ParameterAttribute
-                    $ChannelAttr.ParameterSetName  = "__AllParameterSets"
-                    $ChannelAttr.Mandatory         = $false
+                "1394" {
+                    $ChannelAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $ChannelAttr.ParameterSetName = "__AllParameterSets"
+                    $ChannelAttr.Mandatory = $false
 
-                    $ChannelValidator              = New-Object System.Management.Automation.ValidateRangeAttribute(
-                                                        0,
-                                                        62
-                                                     )
+                    $ChannelValidator = New-Object System.Management.Automation.ValidateRangeAttribute(
+                        0,
+                        62
+                    )
 
-                    $ChannelNotNull                = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $ChannelNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $ChannelAttrCollection         = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $ChannelAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $ChannelAttrCollection.Add($ChannelAttr)
                     $ChannelAttrCollection.Add($ChannelValidator)
                     $ChannelAttrCollection.Add($ChannelNotNull)
 
-                    $Channel                       = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "Channel",
-                                                         [UInt16],
-                                                         $ChannelAttrCollection
-                                                     )
+                    $Channel = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "Channel",
+                        [UInt16],
+                        $ChannelAttrCollection
+                    )
 
                     # By default, use channel 10
-                    $Channel.Value                 = 10
+                    $Channel.Value = 10
                     $parameterDictionary.Add("Channel", $Channel)
                     break
                 }
 
-                "USB"
-                {
-                    $TargetAttr                    = New-Object System.Management.Automation.ParameterAttribute
-                    $TargetAttr.ParameterSetName   = "__AllParameterSets"
-                    $TargetAttr.Mandatory          = $false
+                "USB" {
+                    $TargetAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $TargetAttr.ParameterSetName = "__AllParameterSets"
+                    $TargetAttr.Mandatory = $false
 
-                    $TargetNotNull                 = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $TargetNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $TargetAttrCollection          = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $TargetAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $TargetAttrCollection.Add($TargetAttr)
                     $TargetAttrCollection.Add($TargetNotNull)
 
-                    $Target                        = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "Target",
-                                                         [string],
-                                                         $TargetAttrCollection
-                                                     )
+                    $Target = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "Target",
+                        [string],
+                        $TargetAttrCollection
+                    )
 
                     # By default, use target = "debugging"
-                    $Target.Value                  = "Debugging"
+                    $Target.Value = "Debugging"
                     $parameterDictionary.Add("Target", $Target)
                     break
                 }
 
-                "Network"
-                {
+                "Network" {
                     #region IP
-                    $IpAttr                        = New-Object System.Management.Automation.ParameterAttribute
-                    $IpAttr.ParameterSetName       = "__AllParameterSets"
-                    $IpAttr.Mandatory              = $true
+                    $IpAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $IpAttr.ParameterSetName = "__AllParameterSets"
+                    $IpAttr.Mandatory = $true
 
-                    $IpValidator                   = New-Object System.Management.Automation.ValidatePatternAttribute(
-                                                        "\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
-                                                     )
-                    $IpNotNull                     = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $IpValidator = New-Object System.Management.Automation.ValidatePatternAttribute(
+                        "\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+                    )
+                    $IpNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $IpAttrCollection              = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $IpAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $IpAttrCollection.Add($IpAttr)
                     $IpAttrCollection.Add($IpValidator)
                     $IpAttrCollection.Add($IpNotNull)
 
-                    $IP                            = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "IPAddress",
-                                                         [string],
-                                                         $IpAttrCollection
-                                                     )
+                    $IP = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "IPAddress",
+                        [string],
+                        $IpAttrCollection
+                    )
 
                     # There's no good way to set a default value for this.
                     $parameterDictionary.Add("IPAddress", $IP)
                     #endregion IP
 
                     #region Port
-                    $PortAttr                      = New-Object System.Management.Automation.ParameterAttribute
-                    $PortAttr.ParameterSetName     = "__AllParameterSets"
-                    $PortAttr.Mandatory            = $false
+                    $PortAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $PortAttr.ParameterSetName = "__AllParameterSets"
+                    $PortAttr.Mandatory = $false
 
-                    $PortValidator                 = New-Object System.Management.Automation.ValidateRangeAttribute(
-                                                        49152,
-                                                        50039
-                                                     )
+                    $PortValidator = New-Object System.Management.Automation.ValidateRangeAttribute(
+                        49152,
+                        50039
+                    )
 
-                    $PortNotNull                   = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $PortNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $PortAttrCollection            = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $PortAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $PortAttrCollection.Add($PortAttr)
                     $PortAttrCollection.Add($PortValidator)
                     $PortAttrCollection.Add($PortNotNull)
 
 
-                    $Port                          = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "Port",
-                                                         [UInt16],
-                                                         $PortAttrCollection
-                                                     )
+                    $Port = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "Port",
+                        [UInt16],
+                        $PortAttrCollection
+                    )
 
                     # By default, use port 50000
-                    $Port.Value                    = 50000
+                    $Port.Value = 50000
                     $parameterDictionary.Add("Port", $Port)
                     #endregion Port
 
                     #region Key
-                    $KeyAttr                       = New-Object System.Management.Automation.ParameterAttribute
-                    $KeyAttr.ParameterSetName      = "__AllParameterSets"
-                    $KeyAttr.Mandatory             = $true
+                    $KeyAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $KeyAttr.ParameterSetName = "__AllParameterSets"
+                    $KeyAttr.Mandatory = $true
 
-                    $KeyValidator                  = New-Object System.Management.Automation.ValidatePatternAttribute(
-                                                        "\b([A-Z0-9]+).([A-Z0-9]+).([A-Z0-9]+).([A-Z0-9]+)\b"
-                                                     )
+                    $KeyValidator = New-Object System.Management.Automation.ValidatePatternAttribute(
+                        "\b([A-Z0-9]+).([A-Z0-9]+).([A-Z0-9]+).([A-Z0-9]+)\b"
+                    )
 
-                    $KeyNotNull                    = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
+                    $KeyNotNull = New-Object System.Management.Automation.ValidateNotNullOrEmptyAttribute
 
-                    $KeyAttrCollection             = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $KeyAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $KeyAttrCollection.Add($KeyAttr)
                     $KeyAttrCollection.Add($KeyValidator)
                     $KeyAttrCollection.Add($KeyNotNull)
 
-                    $Key                           = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "Key",
-                                                         [string],
-                                                         $KeyAttrCollection
-                                                     )
+                    $Key = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "Key",
+                        [string],
+                        $KeyAttrCollection
+                    )
 
                     # Don't set a default key.
                     $parameterDictionary.Add("Key", $Key)
                     #endregion Key
 
                     #region NoDHCP
-                    $NoDHCPAttr                    = New-Object System.Management.Automation.ParameterAttribute
-                    $NoDHCPAttr.ParameterSetName   = "__AllParameterSets"
-                    $NoDHCPAttr.Mandatory          = $false
+                    $NoDHCPAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $NoDHCPAttr.ParameterSetName = "__AllParameterSets"
+                    $NoDHCPAttr.Mandatory = $false
 
-                    $NoDHCPAttrCollection          = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $NoDHCPAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $NoDHCPAttrCollection.Add($NoDHCPAttr)
 
-                    $NoDHCP                        = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "NoDHCP",
-                                                         [switch],
-                                                         $NoDHCPAttrCollection
-                                                     )
+                    $NoDHCP = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "NoDHCP",
+                        [switch],
+                        $NoDHCPAttrCollection
+                    )
 
                     $parameterDictionary.Add("NoDHCP", $NoDHCP)
                     #endregion NoDHCP
 
                     #region NewKey
-                    $NewKeyAttr                    = New-Object System.Management.Automation.ParameterAttribute
-                    $NewKeyAttr.ParameterSetName   = "__AllParameterSets"
-                    $NewKeyAttr.Mandatory          = $false
+                    $NewKeyAttr = New-Object System.Management.Automation.ParameterAttribute
+                    $NewKeyAttr.ParameterSetName = "__AllParameterSets"
+                    $NewKeyAttr.Mandatory = $false
 
-                    $NewKeyAttrCollection          = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+                    $NewKeyAttrCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
                     $NewKeyAttrCollection.Add($NewKeyAttr)
 
-                    $NewKey                        = New-Object System.Management.Automation.RuntimeDefinedParameter(
-                                                         "NewKey",
-                                                         [switch],
-                                                         $NewKeyAttrCollection
-                                                     )
+                    $NewKey = New-Object System.Management.Automation.RuntimeDefinedParameter(
+                        "NewKey",
+                        [switch],
+                        $NewKeyAttrCollection
+                    )
 
                     # Don't set a default key.
                     $parameterDictionary.Add("NewKey", $NewKey)
@@ -662,1114 +655,1057 @@ Convert-WindowsImage
                 # There's nothing to do for local debugging.
                 # Synthetic debugging is not yet implemented.
 
-                default
-                {
-                   break
+                default {
+                    break
                 }
             }
         }
         return $parameterDictionary
     }
 
-    Begin 
-    {
+    Begin {
 
-        Set-StrictMode -version 3
+        Set-StrictMode -Version 3
         $Module = Import-ModuleEx -Name "Dism"
         $Module = Import-ModuleEx -Name "Storage"
 
-       #region Constants and Pseudo-Constants
-        
-          # Name of the script, obviously.
-            $scriptName             = "Convert-WindowsImage"
+        #region Constants and Pseudo-Constants
 
-          # Session key, used for keeping records unique between multiple runs.
-            $sessionKey             = [Guid]::NewGuid().ToString()
+        # Name of the script, obviously.
+        $scriptName = "Convert-WindowsImage"
 
-          # Log folder path.
-            $logFolder              = [io.path]::Combine( $TempDirectory, $scriptName, $sessionKey )
+        # Session key, used for keeping records unique between multiple runs.
+        $sessionKey = [Guid]::NewGuid().ToString()
 
-          # Maximum size for VHD is ~2040GB.
-            $vhdMaxSize             = 2040GB
+        # Log folder path.
+        $logFolder = [io.path]::Combine( $TempDirectory, $scriptName, $sessionKey )
 
-          # Maximum size for VHDX is ~64TB.
-            $vhdxMaxSize            = 64TB
+        # Maximum size for VHD is ~2040GB.
+        $vhdMaxSize = 2040GB
 
-          # The lowest supported *image* version; making sure we don't run against Vista/2k8.
-            $lowestSupportedVersion = New-Object -TypeName "Version" -ArgumentList "6.1"
+        # Maximum size for VHDX is ~64TB.
+        $vhdxMaxSize = 64TB
 
-          # The lowest supported *host* build.  Set to Win8 CP.
-            $lowestSupportedBuild   = 9200
+        # The lowest supported *image* version; making sure we don't run against Vista/2k8.
+        $lowestSupportedVersion = New-Object -TypeName "Version" -ArgumentList "6.1"
 
-          # Keeps track on whether the script itself enabled Transcript
-          # (vs. it was enabled by user)
-            $Transcripting          = $false
+        # The lowest supported *host* build.  Set to Win8 CP.
+        $lowestSupportedBuild = 9200
 
-          # Since we use the VhdFormat in output, make it uppercase.
-          # We'll make it lowercase again when we use it as a file extension.
-            $VhdFormat              = $VhdFormat.ToUpper()
+        # Keeps track on whether the script itself enabled Transcript
+        # (vs. it was enabled by user)
+        $Transcripting = $false
 
-            If (Test-Path -Path "Variable:\VhdPartitionStyle")
-            {
-                Switch ($VhdPartitionStyle)
-                {
-                    "Mbr"
-                    {
-                        $DiskLayout = "Bios"
-                    }
+        # Since we use the VhdFormat in output, make it uppercase.
+        # We'll make it lowercase again when we use it as a file extension.
+        $VhdFormat = $VhdFormat.ToUpper()
 
-                    "Gpt"
-                    {
-                        $DiskLayout = "Uefi"
-                    }
+        If (Test-Path -Path "Variable:\VhdPartitionStyle") {
+            Switch ($VhdPartitionStyle) {
+                "Mbr" {
+                    $DiskLayout = "Bios"
+                }
 
-                    "MBRforWindowsToGo"
-                    {
-                        $DiskLayout = "WindowsToGo"
-                    }
+                "Gpt" {
+                    $DiskLayout = "Uefi"
+                }
+
+                "MBRforWindowsToGo" {
+                    $DiskLayout = "WindowsToGo"
                 }
             }
+        }
 
-            If (Get-Command -Name "Get-WindowsOptionalFeature" -ErrorAction "SilentlyContinue")
-            {
-                Try
-                {
-                    $hyperVEnabled  =
-                        [bool]( Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-Services" -Verbose:$False ).State -and
-                        [bool]( Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-Management-PowerShell" -Verbose:$False ).State
+        If (Get-Command -Name "Get-WindowsOptionalFeature" -ErrorAction "SilentlyContinue") {
+            Try {
+                $OSVersion = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -Name ProductName).ProductName
+                if ($OSVersion -like "Windows Server*") {
+                    $hyperVEnabled =
+                    [bool]( Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V" -Verbose:$False ).State -and
+                    [bool]( Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-Management-PowerShell" -Verbose:$False ).State
                 }
-                Catch
-                {
-
-                  # WinPE DISM does not support online queries.  This will throw on non-WinPE machines
-
-                    $winpeVersion = (Get-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\WinPE').Version
-
-                    Write-Verbose -Message "Running WinPE version $winpeVersion"
-
-                    $hyperVEnabled = $False
+                else {
+                    $hyperVEnabled =
+                    [bool]( Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-Services" -Verbose:$False ).State -and
+                    [bool]( Get-WindowsOptionalFeature -Online -FeatureName "Microsoft-Hyper-V-Management-PowerShell" -Verbose:$False ).State
                 }
             }
-            Else
-            {
+            Catch {
+
+                # WinPE DISM does not support online queries.  This will throw on non-WinPE machines
+
+                $winpeVersion = (Get-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\WinPE').Version
+
+                Write-Verbose -Message "Running WinPE version $winpeVersion"
+
                 $hyperVEnabled = $False
             }
+        }
+        Else {
+            $hyperVEnabled = $False
+        }
 
-       #endregion Constants and Pseudo-Constants
+        #endregion Constants and Pseudo-Constants
 
-       #region Here Strings
+        #region Here Strings
 
-          # Banner text displayed during each run.
-            $Header    = @"
+        # Banner text displayed during each run.
+        $Header = @"
 
 Windows(R) Image to Virtual Hard Disk Converter for Windows(R) 10
 Copyright (C) Microsoft Corporation.  All rights reserved.
 
 "@
 
-          # Text used as the banner in the UI.
-            $UiHeader  = @"
+        # Text used as the banner in the UI.
+        $UiHeader = @"
 You can use the fields below to configure the VHD or VHDX that you want to create!
 "@
 
-       #endregion Here Strings
+        #endregion Here Strings
     }
 
     Process {
 
-        $disk           = $null
-        $openWim        = $null
-        $openIso        = $null
-        $openImage      = $null
-        $vhdFinalName   = $null
-        $vhdFinalPath   = $null
-        $mountedHive    = $null
-        $IsoPath        = $null
-        $tempSource     = $null
-        $vhd            = @()
+        $disk = $null
+        $openWim = $null
+        $openIso = $null
+        $openImage = $null
+        $vhdFinalName = $null
+        $vhdFinalPath = $null
+        $mountedHive = $null
+        $IsoPath = $null
+        $tempSource = $null
+        $vhd = @()
 
         Write-Information -MessageData $header
 
-        Try
-        {
-           #region Prepare variables
+        Try {
+            #region Prepare variables
 
-              # Create log folder
-                If (Test-Path -Path $logFolder)
-                {
-                    $Item = Remove-Item -Path $logFolder -Force -Recurse
+            # Create log folder
+            If (Test-Path -Path $logFolder) {
+                $Item = Remove-Item -Path $logFolder -Force -Recurse
+            }
+
+            $Item = New-Item -Path $logFolder -ItemType "Directory" -Force
+
+            # Try to start transcripting.  If it's already running, we'll get an exception and swallow it.
+            Try {
+                $TranscriptPath = Join-Path -Path $logFolder -ChildPath "Convert-WindowsImageTranscript.txt"
+                $Transcript = Start-Transcript -Path $TranscriptPath -Force -ErrorAction "SilentlyContinue"
+                $Transcripting = $True
+            }
+            catch {
+                Write-Warning -Message "Transcription is already running.  No Convert-WindowsImage-specific transcript will be created."
+                $Transcripting = $Talse
+            }
+
+            # Add types
+            Add-WindowsImageTypes
+
+            # Check to make sure we're running as Admin.
+            If (-Not ( Test-Admin )) {
+                Throw "Images can only be applied by an administrator.  Please launch PowerShell elevated and run this script again."
+            }
+
+            # Check to make sure we're running (at least) on Win8.
+            If (-Not ( Test-WindowsVersion )) {
+                Throw "$scriptName requires Windows 8 Consumer Preview or higher.  Please use WIM2VHD.WSF (http://code.msdn.microsoft.com/wim2vhd) if you need to create VHDs from Windows 7."
+            }
+
+            # Resolve the path for the unattend file.
+            If (-Not [string]::IsNullOrEmpty( $UnattendPath )) {
+                $UnattendPath = ( Resolve-Path -Path $UnattendPath ).Path
+            }
+
+            # Note: UI code is deprecated and not maintained anymore.
+            If ($ShowUI) {
+                Write-Verbose -Message "Launching UI..."
+                Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+
+                #region Form Objects
+                $frmMain = New-Object System.Windows.Forms.Form
+                $groupBox4 = New-Object System.Windows.Forms.GroupBox
+                $btnGo = New-Object System.Windows.Forms.Button
+                $groupBox3 = New-Object System.Windows.Forms.GroupBox
+                $txtVhdName = New-Object System.Windows.Forms.TextBox
+                $label6 = New-Object System.Windows.Forms.Label
+                $btnWrkBrowse = New-Object System.Windows.Forms.Button
+                $cmbVhdSizeUnit = New-Object System.Windows.Forms.ComboBox
+                $numVhdSize = New-Object System.Windows.Forms.NumericUpDown
+                $cmbVhdFormat = New-Object System.Windows.Forms.ComboBox
+                $label5 = New-Object System.Windows.Forms.Label
+                $txtWorkingDirectory = New-Object System.Windows.Forms.TextBox
+                $label4 = New-Object System.Windows.Forms.Label
+                $label3 = New-Object System.Windows.Forms.Label
+                $label2 = New-Object System.Windows.Forms.Label
+                $label7 = New-Object System.Windows.Forms.Label
+                $txtUnattendFile = New-Object System.Windows.Forms.TextBox
+                $btnUnattendBrowse = New-Object System.Windows.Forms.Button
+                $groupBox2 = New-Object System.Windows.Forms.GroupBox
+                $cmbSkuList = New-Object System.Windows.Forms.ComboBox
+                $label1 = New-Object System.Windows.Forms.Label
+                $groupBox1 = New-Object System.Windows.Forms.GroupBox
+                $txtSourcePath = New-Object System.Windows.Forms.TextBox
+                $btnBrowseWim = New-Object System.Windows.Forms.Button
+                $openFileDialog1 = New-Object System.Windows.Forms.OpenFileDialog
+                $openFolderDialog1 = New-Object System.Windows.Forms.FolderBrowserDialog
+                $InitialFormWindowState = New-Object System.Windows.Forms.FormWindowState
+
+                #endregion Form Objects
+
+                #region Event scriptblocks.
+
+                $btnGo_OnClick = {
+                    $frmMain.Close()
                 }
 
-                $Item = New-Item -Path $logFolder -ItemType "Directory" -Force
+                $btnWrkBrowse_OnClick = {
+                    $openFolderDialog1.RootFolder = "Desktop"
+                    $openFolderDialog1.Description = "Select the folder you'd like your VHD(X) to be created in."
+                    $openFolderDialog1.SelectedPath = $WorkingDirectory
 
-              # Try to start transcripting.  If it's already running, we'll get an exception and swallow it.
-                Try
-                {
-                    $TranscriptPath = Join-Path -Path $logFolder -ChildPath "Convert-WindowsImageTranscript.txt"
-                    $Transcript     = Start-Transcript -Path $TranscriptPath -Force -ErrorAction "SilentlyContinue"
-                    $Transcripting  = $True
-                }
-                catch
-                {
-                    Write-Warning -Message "Transcription is already running.  No Convert-WindowsImage-specific transcript will be created."
-                    $Transcripting  = $Talse
-                }
+                    $ret = $openFolderDialog1.ShowDialog()
 
-              # Add types
-                Add-WindowsImageTypes
-
-              # Check to make sure we're running as Admin.
-                If (-Not ( Test-Admin ))
-                {
-                    Throw "Images can only be applied by an administrator.  Please launch PowerShell elevated and run this script again."
-                }
-
-              # Check to make sure we're running (at least) on Win8.
-                If (-Not ( Test-WindowsVersion ))
-                {
-                    Throw "$scriptName requires Windows 8 Consumer Preview or higher.  Please use WIM2VHD.WSF (http://code.msdn.microsoft.com/wim2vhd) if you need to create VHDs from Windows 7."
-                }
-
-              # Resolve the path for the unattend file.
-                If (-Not [string]::IsNullOrEmpty( $UnattendPath ))
-                {
-                    $UnattendPath = ( Resolve-Path -Path $UnattendPath ).Path
-                }
-
-              # Note: UI code is deprecated and not maintained anymore.
-                If ($ShowUI)
-                {
-                    Write-Verbose -Message "Launching UI..."
-                    Add-Type -AssemblyName System.Drawing,System.Windows.Forms
-
-                    #region Form Objects
-                    $frmMain                = New-Object System.Windows.Forms.Form
-                    $groupBox4              = New-Object System.Windows.Forms.GroupBox
-                    $btnGo                  = New-Object System.Windows.Forms.Button
-                    $groupBox3              = New-Object System.Windows.Forms.GroupBox
-                    $txtVhdName             = New-Object System.Windows.Forms.TextBox
-                    $label6                 = New-Object System.Windows.Forms.Label
-                    $btnWrkBrowse           = New-Object System.Windows.Forms.Button
-                    $cmbVhdSizeUnit         = New-Object System.Windows.Forms.ComboBox
-                    $numVhdSize             = New-Object System.Windows.Forms.NumericUpDown
-                    $cmbVhdFormat           = New-Object System.Windows.Forms.ComboBox
-                    $label5                 = New-Object System.Windows.Forms.Label
-                    $txtWorkingDirectory    = New-Object System.Windows.Forms.TextBox
-                    $label4                 = New-Object System.Windows.Forms.Label
-                    $label3                 = New-Object System.Windows.Forms.Label
-                    $label2                 = New-Object System.Windows.Forms.Label
-                    $label7                 = New-Object System.Windows.Forms.Label
-                    $txtUnattendFile        = New-Object System.Windows.Forms.TextBox
-                    $btnUnattendBrowse      = New-Object System.Windows.Forms.Button
-                    $groupBox2              = New-Object System.Windows.Forms.GroupBox
-                    $cmbSkuList             = New-Object System.Windows.Forms.ComboBox
-                    $label1                 = New-Object System.Windows.Forms.Label
-                    $groupBox1              = New-Object System.Windows.Forms.GroupBox
-                    $txtSourcePath          = New-Object System.Windows.Forms.TextBox
-                    $btnBrowseWim           = New-Object System.Windows.Forms.Button
-                    $openFileDialog1        = New-Object System.Windows.Forms.OpenFileDialog
-                    $openFolderDialog1      = New-Object System.Windows.Forms.FolderBrowserDialog
-                    $InitialFormWindowState = New-Object System.Windows.Forms.FormWindowState
-
-                    #endregion Form Objects
-
-                    #region Event scriptblocks.
-
-                    $btnGo_OnClick                          = {
-                        $frmMain.Close()
+                    if ($ret -ilike "ok") {
+                        $WorkingDirectory = $txtWorkingDirectory = $openFolderDialog1.SelectedPath
+                        Write-Verbose -Message "Selected Working Directory is $WorkingDirectory..."
                     }
+                }
 
-                    $btnWrkBrowse_OnClick                   = {
-                        $openFolderDialog1.RootFolder       = "Desktop"
-                        $openFolderDialog1.Description      = "Select the folder you'd like your VHD(X) to be created in."
-                        $openFolderDialog1.SelectedPath     = $WorkingDirectory
+                $btnUnattendBrowse_OnClick = {
+                    $openFileDialog1.InitialDirectory = $pwd
+                    $openFileDialog1.Filter = "XML files (*.xml)|*.XML|All files (*.*)|*.*"
+                    $openFileDialog1.FilterIndex = 1
+                    $openFileDialog1.CheckFileExists = $true
+                    $openFileDialog1.CheckPathExists = $true
+                    $openFileDialog1.FileName = $null
+                    $openFileDialog1.ShowHelp = $false
+                    $openFileDialog1.Title = "Select an unattend file..."
 
-                        $ret = $openFolderDialog1.ShowDialog()
+                    $ret = $openFileDialog1.ShowDialog()
 
-                        if ($ret -ilike "ok")
-                        {
-                            $WorkingDirectory = $txtWorkingDirectory = $openFolderDialog1.SelectedPath
-                            Write-Verbose -Message "Selected Working Directory is $WorkingDirectory..."
-                        }
+                    if ($ret -ilike "ok") {
+                        $UnattendPath = $txtUnattendFile.Text = $openFileDialog1.FileName
                     }
+                }
 
-                    $btnUnattendBrowse_OnClick              = {
-                        $openFileDialog1.InitialDirectory   = $pwd
-                        $openFileDialog1.Filter             = "XML files (*.xml)|*.XML|All files (*.*)|*.*"
-                        $openFileDialog1.FilterIndex        = 1
-                        $openFileDialog1.CheckFileExists    = $true
-                        $openFileDialog1.CheckPathExists    = $true
-                        $openFileDialog1.FileName           = $null
-                        $openFileDialog1.ShowHelp           = $false
-                        $openFileDialog1.Title              = "Select an unattend file..."
+                $btnBrowseWim_OnClick = {
+                    $openFileDialog1.InitialDirectory = $pwd
+                    $openFileDialog1.Filter = "All compatible files (*.ISO, *.WIM)|*.ISO;*.WIM|All files (*.*)|*.*"
+                    $openFileDialog1.FilterIndex = 1
+                    $openFileDialog1.CheckFileExists = $true
+                    $openFileDialog1.CheckPathExists = $true
+                    $openFileDialog1.FileName = $null
+                    $openFileDialog1.ShowHelp = $false
+                    $openFileDialog1.Title = "Select a source file..."
 
-                        $ret = $openFileDialog1.ShowDialog()
+                    $ret = $openFileDialog1.ShowDialog()
 
-                        if ($ret -ilike "ok")
-                        {
-                            $UnattendPath = $txtUnattendFile.Text = $openFileDialog1.FileName
-                        }
-                    }
+                    if ($ret -ilike "ok") {
 
-                    $btnBrowseWim_OnClick                   = {
-                        $openFileDialog1.InitialDirectory   = $pwd
-                        $openFileDialog1.Filter             = "All compatible files (*.ISO, *.WIM)|*.ISO;*.WIM|All files (*.*)|*.*"
-                        $openFileDialog1.FilterIndex        = 1
-                        $openFileDialog1.CheckFileExists    = $true
-                        $openFileDialog1.CheckPathExists    = $true
-                        $openFileDialog1.FileName           = $null
-                        $openFileDialog1.ShowHelp           = $false
-                        $openFileDialog1.Title              = "Select a source file..."
+                        if (([IO.FileInfo]$openFileDialog1.FileName).Extension -ilike ".iso") {
 
-                        $ret = $openFileDialog1.ShowDialog()
-
-                        if ($ret -ilike "ok")
-                        {
-
-                            if (([IO.FileInfo]$openFileDialog1.FileName).Extension -ilike ".iso")
-                            {
-
-                                if (Test-IsNetworkLocation $openFileDialog1.FileName)
-                                {
-                                    Write-Verbose -Message "Copying ISO $(Split-Path $openFileDialog1.FileName -Leaf) to temp folder..."
-                                    Write-Warning -Message "The UI may become non-responsive while this copy takes place..."
-                                    Copy-Item -Path $openFileDialog1.FileName -Destination $TempDirectory -Force
-                                    $openFileDialog1.FileName = "$($TempDirectory)\$(Split-Path $openFileDialog1.FileName -Leaf)"
-                                }
-
-                                $txtSourcePath.Text = $IsoPath = (Resolve-Path $openFileDialog1.FileName).Path
-                                Write-Verbose -Message "Opening ISO $(Split-Path $IsoPath -Leaf)..."
-
-                                $openIso     = Mount-DiskImage -ImagePath $IsoPath -StorageType ISO -PassThru
-
-                                # Refresh the DiskImage and Drive object so we can get the real information about it.  I assume this is a bug.
-                                Get-PSDrive -PSProvider FileSystem | Out-Null
-                                $openIso     = Get-DiskImage -ImagePath $IsoPath
-                                $driveLetter = ( Get-Volume -DiskImage $openIso ).DriveLetter
-
-                                $script:SourcePath  = "$($driveLetter):\sources\install.wim"
-
-                                # Check to see if there's a WIM file we can muck about with.
-                                Write-Verbose -Message "Looking for $($SourcePath)..."
-                                if (!(Test-Path $SourcePath))
-                                {
-                                    throw "The specified ISO does not appear to be valid Windows installation media."
-                                }
-                            }
-                            else
-                            {
-                                $txtSourcePath.Text = $script:SourcePath = $openFileDialog1.FileName
-                            }
-
-                            # Check to see if the WIM is local, or on a network location.  If the latter, copy it locally.
-                            if (Test-IsNetworkLocation $SourcePath)
-                            {
-                                Write-Verbose -Message "Copying WIM $(Split-Path $SourcePath -Leaf) to temp folder..."
+                            if (Test-IsNetworkLocation $openFileDialog1.FileName) {
+                                Write-Verbose -Message "Copying ISO $(Split-Path $openFileDialog1.FileName -Leaf) to temp folder..."
                                 Write-Warning -Message "The UI may become non-responsive while this copy takes place..."
-                                Copy-Item -Path $SourcePath -Destination $TempDirectory -Force
-                                $txtSourcePath.Text = $script:SourcePath = "$($TempDirectory)\$(Split-Path $SourcePath -Leaf)"
+                                Copy-Item -Path $openFileDialog1.FileName -Destination $TempDirectory -Force
+                                $openFileDialog1.FileName = "$($TempDirectory)\$(Split-Path $openFileDialog1.FileName -Leaf)"
                             }
 
-                            $script:SourcePath = (Resolve-Path $SourcePath).Path
+                            $txtSourcePath.Text = $IsoPath = (Resolve-Path $openFileDialog1.FileName).Path
+                            Write-Verbose -Message "Opening ISO $(Split-Path $IsoPath -Leaf)..."
 
-                            Write-Verbose -Message "Scanning WIM metadata..."
+                            $openIso = Mount-DiskImage -ImagePath $IsoPath -StorageType ISO -PassThru
 
-                            $tempOpenWim = $null
+                            # Refresh the DiskImage and Drive object so we can get the real information about it.  I assume this is a bug.
+                            Get-PSDrive -PSProvider FileSystem | Out-Null
+                            $openIso = Get-DiskImage -ImagePath $IsoPath
+                            $driveLetter = ( Get-Volume -DiskImage $openIso ).DriveLetter
 
-                            try
-                            {
-                                $tempOpenWim   = New-Object WIM2VHD.WimFile $SourcePath
+                            $script:SourcePath = "$($driveLetter):\sources\install.wim"
 
-                                # Let's see if we're running against an unstaged build.  If we are, we need to blow up.
-                                if ($tempOpenWim.ImageNames.Contains("Windows Longhorn Client") -or
-                                    $tempOpenWim.ImageNames.Contains("Windows Longhorn Server") -or
-                                    $tempOpenWim.ImageNames.Contains("Windows Longhorn Server Core"))
-                                {
-                                    [Windows.Forms.MessageBox]::Show(
-                                        "Convert-WindowsImage cannot run against unstaged builds. Please try again with a staged build.",
-                                        "WIM is incompatible!",
-                                        "OK",
-                                        "Error"
-                                    )
-
-                                    return
-                                }
-                                else
-                                {
-                                    $tempOpenWim.Images | %{ $cmbSkuList.Items.Add($_.ImageFlags) }
-                                    $cmbSkuList.SelectedIndex = 0
-                                }
-
-                            }
-                            catch
-                            {
-                                throw "Unable to load WIM metadata!"
-                            }
-                            finally
-                            {
-                                $tempOpenWim.Close()
-                                Write-Debug -Message "  Closing WIM metadata..."
+                            # Check to see if there's a WIM file we can muck about with.
+                            Write-Verbose -Message "Looking for $($SourcePath)..."
+                            if (!(Test-Path $SourcePath)) {
+                                throw "The specified ISO does not appear to be valid Windows installation media."
                             }
                         }
-                    }
-
-                    $OnLoadForm_StateCorrection = {
-
-                        # Correct the initial state of the form to prevent the .Net maximized form issue
-                        $frmMain.WindowState      = $InitialFormWindowState
-                    }
-
-                    #endregion Event scriptblocks
-
-                    # Figure out VHD size and size unit.
-                    $unit = $null
-                    switch ([Math]::Round($SizeBytes.ToString().Length / 3))
-                    {
-                        3 { $unit = "MB"; break }
-                        4 { $unit = "GB"; break }
-                        5 { $unit = "TB"; break }
-                        default { $unit = ""; break }
-                    }
-
-                    $quantity = Invoke-Expression -Command "$($SizeBytes) / 1$($unit)"
-
-                    #region Form Code
-                    #region frmMain
-                    $frmMain.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 579
-                    $System_Drawing_Size.Width    = 512
-                    $frmMain.ClientSize           = $System_Drawing_Size
-                    $frmMain.Font                 = New-Object System.Drawing.Font("Segoe UI",10,0,3,1)
-                    $frmMain.FormBorderStyle      = 1
-                    $frmMain.MaximizeBox          = $False
-                    $frmMain.MinimizeBox          = $False
-                    $frmMain.Name                 = "frmMain"
-                    $frmMain.StartPosition        = 1
-                    $frmMain.Text                 = "Convert-WindowsImage UI"
-                    #endregion frmMain
-
-                    #region groupBox4
-                    $groupBox4.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 10
-                    $System_Drawing_Point.Y       = 498
-                    $groupBox4.Location           = $System_Drawing_Point
-                    $groupBox4.Name               = "groupBox4"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 69
-                    $System_Drawing_Size.Width    = 489
-                    $groupBox4.Size               = $System_Drawing_Size
-                    $groupBox4.TabIndex           = 8
-                    $groupBox4.TabStop            = $False
-                    $groupBox4.Text               = "4. Make the VHD!"
-
-                    $frmMain.Controls.Add($groupBox4)
-                    #endregion groupBox4
-
-                    #region btnGo
-                    $btnGo.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 39
-                    $System_Drawing_Point.Y       = 24
-                    $btnGo.Location               = $System_Drawing_Point
-                    $btnGo.Name                   = "btnGo"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 33
-                    $System_Drawing_Size.Width    = 415
-                    $btnGo.Size                   = $System_Drawing_Size
-                    $btnGo.TabIndex               = 0
-                    $btnGo.Text                   = "&Make my VHD"
-                    $btnGo.UseVisualStyleBackColor = $True
-                    $btnGo.DialogResult           = "OK"
-                    $btnGo.add_Click($btnGo_OnClick)
-
-                    $groupBox4.Controls.Add($btnGo)
-                    $frmMain.AcceptButton = $btnGo
-                    #endregion btnGo
-
-                    #region groupBox3
-                    $groupBox3.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 10
-                    $System_Drawing_Point.Y       = 243
-                    $groupBox3.Location           = $System_Drawing_Point
-                    $groupBox3.Name               = "groupBox3"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 245
-                    $System_Drawing_Size.Width    = 489
-                    $groupBox3.Size               = $System_Drawing_Size
-                    $groupBox3.TabIndex           = 7
-                    $groupBox3.TabStop            = $False
-                    $groupBox3.Text               = "3. Choose configuration options"
-
-                    $frmMain.Controls.Add($groupBox3)
-                    #endregion groupBox3
-
-                    #region txtVhdName
-                    $txtVhdName.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 150
-                    $txtVhdName.Location          = $System_Drawing_Point
-                    $txtVhdName.Name              = "txtVhdName"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 418
-                    $txtVhdName.Size              = $System_Drawing_Size
-                    $txtVhdName.TabIndex          = 10
-
-                    $groupBox3.Controls.Add($txtVhdName)
-                    #endregion txtVhdName
-
-                    #region txtUnattendFile
-                    $txtUnattendFile.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 198
-                    $txtUnattendFile.Location     = $System_Drawing_Point
-                    $txtUnattendFile.Name         = "txtUnattendFile"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 418
-                    $txtUnattendFile.Size         = $System_Drawing_Size
-                    $txtUnattendFile.TabIndex     = 11
-
-                    $groupBox3.Controls.Add($txtUnattendFile)
-                    #endregion txtUnattendFile
-
-                    #region label7
-                    $label7.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 23
-                    $System_Drawing_Point.Y       = 180
-                    $label7.Location              = $System_Drawing_Point
-                    $label7.Name                  = "label7"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 23
-                    $System_Drawing_Size.Width    = 175
-                    $label7.Size                  = $System_Drawing_Size
-                    $label7.Text                  = "Unattend File (Optional)"
-
-                    $groupBox3.Controls.Add($label7)
-                    #endregion label7
-
-                    #region label6
-                    $label6.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 23
-                    $System_Drawing_Point.Y       = 132
-                    $label6.Location              = $System_Drawing_Point
-                    $label6.Name                  = "label6"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 23
-                    $System_Drawing_Size.Width    = 175
-                    $label6.Size                  = $System_Drawing_Size
-                    $label6.Text                  = "VHD Name (Optional)"
-
-                    $groupBox3.Controls.Add($label6)
-                    #endregion label6
-
-                    #region btnUnattendBrowse
-                    $btnUnattendBrowse.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 449
-                    $System_Drawing_Point.Y       = 199
-                    $btnUnattendBrowse.Location   = $System_Drawing_Point
-                    $btnUnattendBrowse.Name       = "btnUnattendBrowse"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 27
-                    $btnUnattendBrowse.Size       = $System_Drawing_Size
-                    $btnUnattendBrowse.TabIndex   = 9
-                    $btnUnattendBrowse.Text       = "..."
-                    $btnUnattendBrowse.UseVisualStyleBackColor = $True
-                    $btnUnattendBrowse.add_Click($btnUnattendBrowse_OnClick)
-
-                    $groupBox3.Controls.Add($btnUnattendBrowse)
-                    #endregion btnUnattendBrowse
-
-                    #region btnWrkBrowse
-                    $btnWrkBrowse.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 449
-                    $System_Drawing_Point.Y       = 98
-                    $btnWrkBrowse.Location        = $System_Drawing_Point
-                    $btnWrkBrowse.Name            = "btnWrkBrowse"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 27
-                    $btnWrkBrowse.Size            = $System_Drawing_Size
-                    $btnWrkBrowse.TabIndex        = 9
-                    $btnWrkBrowse.Text            = "..."
-                    $btnWrkBrowse.UseVisualStyleBackColor = $True
-                    $btnWrkBrowse.add_Click($btnWrkBrowse_OnClick)
-
-                    $groupBox3.Controls.Add($btnWrkBrowse)
-                    #endregion btnWrkBrowse
-
-                    #region cmbVhdSizeUnit
-                    $cmbVhdSizeUnit.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $cmbVhdSizeUnit.FormattingEnabled = $True
-                    $cmbVhdSizeUnit.Items.Add("MB") | Out-Null
-                    $cmbVhdSizeUnit.Items.Add("GB") | Out-Null
-                    $cmbVhdSizeUnit.Items.Add("TB") | Out-Null
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 409
-                    $System_Drawing_Point.Y       = 42
-                    $cmbVhdSizeUnit.Location      = $System_Drawing_Point
-                    $cmbVhdSizeUnit.Name          = "cmbVhdSizeUnit"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 67
-                    $cmbVhdSizeUnit.Size          = $System_Drawing_Size
-                    $cmbVhdSizeUnit.TabIndex      = 5
-                    $cmbVhdSizeUnit.Text          = $unit
-
-                    $groupBox3.Controls.Add($cmbVhdSizeUnit)
-                    #endregion cmbVhdSizeUnit
-
-                    #region numVhdSize
-                    $numVhdSize.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 340
-                    $System_Drawing_Point.Y       = 42
-                    $numVhdSize.Location          = $System_Drawing_Point
-                    $numVhdSize.Name              = "numVhdSize"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 63
-                    $numVhdSize.Size              = $System_Drawing_Size
-                    $numVhdSize.TabIndex          = 4
-                    $numVhdSize.Value             = $quantity
-
-                    $groupBox3.Controls.Add($numVhdSize)
-                    #endregion numVhdSize
-
-                    #region cmbVhdFormat
-                    $cmbVhdFormat.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $cmbVhdFormat.FormattingEnabled = $True
-                    $cmbVhdFormat.Items.Add("VHD")  | Out-Null
-                    $cmbVhdFormat.Items.Add("VHDX") | Out-Null
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 42
-                    $cmbVhdFormat.Location        = $System_Drawing_Point
-                    $cmbVhdFormat.Name            = "cmbVhdFormat"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 136
-                    $cmbVhdFormat.Size            = $System_Drawing_Size
-                    $cmbVhdFormat.TabIndex        = 0
-                    $cmbVhdFormat.Text            = $VhdFormat
-
-                    $groupBox3.Controls.Add($cmbVhdFormat)
-                    #endregion cmbVhdFormat
-
-                    #region label5
-                    $label5.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 23
-                    $System_Drawing_Point.Y       = 76
-                    $label5.Location              = $System_Drawing_Point
-                    $label5.Name                  = "label5"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 23
-                    $System_Drawing_Size.Width    = 264
-                    $label5.Size                  = $System_Drawing_Size
-                    $label5.TabIndex              = 8
-                    $label5.Text                  = "Working Directory"
-
-                    $groupBox3.Controls.Add($label5)
-                    #endregion label5
-
-                    #region txtWorkingDirectory
-                    $txtWorkingDirectory.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 99
-                    $txtWorkingDirectory.Location = $System_Drawing_Point
-                    $txtWorkingDirectory.Name     = "txtWorkingDirectory"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 418
-                    $txtWorkingDirectory.Size     = $System_Drawing_Size
-                    $txtWorkingDirectory.TabIndex = 7
-                    $txtWorkingDirectory.Text     = $WorkingDirectory
-
-                    $groupBox3.Controls.Add($txtWorkingDirectory)
-                    #endregion txtWorkingDirectory
-
-                    #region label4
-                    $label4.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 340
-                    $System_Drawing_Point.Y       = 21
-                    $label4.Location              = $System_Drawing_Point
-                    $label4.Name                  = "label4"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 27
-                    $System_Drawing_Size.Width    = 86
-                    $label4.Size                  = $System_Drawing_Size
-                    $label4.TabIndex              = 6
-                    $label4.Text                  = "VHD Size"
-
-                    $groupBox3.Controls.Add($label4)
-                    #endregion label4
-
-                    #region label3
-                    $label3.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 176
-                    $System_Drawing_Point.Y       = 21
-                    $label3.Location              = $System_Drawing_Point
-                    $label3.Name                  = "label3"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 27
-                    $System_Drawing_Size.Width    = 92
-                    $label3.Size                  = $System_Drawing_Size
-                    $label3.TabIndex              = 3
-                    $label3.Text                  = "VHD Type"
-
-                    $groupBox3.Controls.Add($label3)
-                    #endregion label3
-
-                    #region label2
-                    $label2.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 21
-                    $label2.Location              = $System_Drawing_Point
-                    $label2.Name                  = "label2"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 30
-                    $System_Drawing_Size.Width    = 118
-                    $label2.Size                  = $System_Drawing_Size
-                    $label2.TabIndex              = 1
-                    $label2.Text                  = "VHD Format"
-
-                    $groupBox3.Controls.Add($label2)
-                    #endregion label2
-
-                    #region groupBox2
-                    $groupBox2.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 10
-                    $System_Drawing_Point.Y       = 169
-                    $groupBox2.Location           = $System_Drawing_Point
-                    $groupBox2.Name               = "groupBox2"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 68
-                    $System_Drawing_Size.Width    = 490
-                    $groupBox2.Size               = $System_Drawing_Size
-                    $groupBox2.TabIndex           = 6
-                    $groupBox2.TabStop            = $False
-                    $groupBox2.Text               = "2. Choose a SKU from the list"
-
-                    $frmMain.Controls.Add($groupBox2)
-                    #endregion groupBox2
-
-                    #region cmbSkuList
-                    $cmbSkuList.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $cmbSkuList.FormattingEnabled = $True
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 24
-                    $cmbSkuList.Location          = $System_Drawing_Point
-                    $cmbSkuList.Name              = "cmbSkuList"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 452
-                    $cmbSkuList.Size              = $System_Drawing_Size
-                    $cmbSkuList.TabIndex          = 2
-
-                    $groupBox2.Controls.Add($cmbSkuList)
-                    #endregion cmbSkuList
-
-                    #region label1
-                    $label1.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 23
-                    $System_Drawing_Point.Y       = 21
-                    $label1.Location              = $System_Drawing_Point
-                    $label1.Name                  = "label1"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 71
-                    $System_Drawing_Size.Width    = 464
-                    $label1.Size                  = $System_Drawing_Size
-                    $label1.TabIndex              = 5
-                    $label1.Text                  = $uiHeader
-
-                    $frmMain.Controls.Add($label1)
-                    #endregion label1
-
-                    #region groupBox1
-                    $groupBox1.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 10
-                    $System_Drawing_Point.Y       = 95
-                    $groupBox1.Location           = $System_Drawing_Point
-                    $groupBox1.Name               = "groupBox1"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 68
-                    $System_Drawing_Size.Width    = 490
-                    $groupBox1.Size               = $System_Drawing_Size
-                    $groupBox1.TabIndex           = 4
-                    $groupBox1.TabStop            = $False
-                    $groupBox1.Text               = "1. Choose a source"
-
-                    $frmMain.Controls.Add($groupBox1)
-                    #endregion groupBox1
-
-                    #region txtSourcePath
-                    $txtSourcePath.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 25
-                    $System_Drawing_Point.Y       = 24
-                    $txtSourcePath.Location       = $System_Drawing_Point
-                    $txtSourcePath.Name           = "txtSourcePath"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 418
-                    $txtSourcePath.Size           = $System_Drawing_Size
-                    $txtSourcePath.TabIndex       = 0
-
-                    $groupBox1.Controls.Add($txtSourcePath)
-                    #endregion txtSourcePath
-
-                    #region btnBrowseWim
-                    $btnBrowseWim.DataBindings.DefaultDataSourceUpdateMode = 0
-                    $System_Drawing_Point         = New-Object System.Drawing.Point
-                    $System_Drawing_Point.X       = 449
-                    $System_Drawing_Point.Y       = 24
-                    $btnBrowseWim.Location        = $System_Drawing_Point
-                    $btnBrowseWim.Name            = "btnBrowseWim"
-                    $System_Drawing_Size          = New-Object System.Drawing.Size
-                    $System_Drawing_Size.Height   = 25
-                    $System_Drawing_Size.Width    = 28
-                    $btnBrowseWim.Size            = $System_Drawing_Size
-                    $btnBrowseWim.TabIndex        = 1
-                    $btnBrowseWim.Text            = "..."
-                    $btnBrowseWim.UseVisualStyleBackColor = $True
-                    $btnBrowseWim.add_Click($btnBrowseWim_OnClick)
-
-                    $groupBox1.Controls.Add($btnBrowseWim)
-                    #endregion btnBrowseWim
-
-                    $openFileDialog1.FileName     = "openFileDialog1"
-                    $openFileDialog1.ShowHelp     = $True
-
-                    #endregion Form Code
-
-                    # Save the initial state of the form
-                    $InitialFormWindowState       = $frmMain.WindowState
-
-                    # Init the OnLoad event to correct the initial state of the form
-                    $frmMain.add_Load($OnLoadForm_StateCorrection)
-
-                    # Return the constructed form.
-                    $ret = $frmMain.ShowDialog()
-
-                    if (!($ret -ilike "OK"))
-                    {
-                        throw "Form session has been cancelled."
-                    }
-
-                    if ([string]::IsNullOrEmpty($SourcePath))
-                    {
-                        throw "No source path specified."
-                    }
-
-                    # VHD Format
-                    $VhdFormat        = $cmbVhdFormat.SelectedItem
-
-                    # VHD Size
-                    $SizeBytes        = Invoke-Expression "$($numVhdSize.Value)$($cmbVhdSizeUnit.SelectedItem)"
-
-                    # Working Directory
-                    $WorkingDirectory = $txtWorkingDirectory.Text
-
-                    # VHDPath
-                    if (![string]::IsNullOrEmpty($txtVhdName.Text))
-                    {
-                        $VhdPath      = "$($WorkingDirectory)\$($txtVhdName.Text)"
-                    }
-
-                    # Edition
-                    if (![string]::IsNullOrEmpty($cmbSkuList.SelectedItem))
-                    {
-                        $Edition      = $cmbSkuList.SelectedItem
-                    }
-
-                    # Because we used ShowDialog, we need to manually dispose of the form.
-                    # This probably won't make much of a difference, but let's free up all of the resources we can
-                    # before we start the conversion process.
-
-                    $frmMain.Dispose()
-                }
-
-                If ($VhdFormat -ilike "AUTO")
-                {
-                    If ($DiskLayout -eq "Bios")
-                    {
-                        $VhdFormat = "VHD"
-                    }
-                    Else
-                    {
-                        $VhdFormat = "VHDX"
+                        else {
+                            $txtSourcePath.Text = $script:SourcePath = $openFileDialog1.FileName
+                        }
+
+                        # Check to see if the WIM is local, or on a network location.  If the latter, copy it locally.
+                        if (Test-IsNetworkLocation $SourcePath) {
+                            Write-Verbose -Message "Copying WIM $(Split-Path $SourcePath -Leaf) to temp folder..."
+                            Write-Warning -Message "The UI may become non-responsive while this copy takes place..."
+                            Copy-Item -Path $SourcePath -Destination $TempDirectory -Force
+                            $txtSourcePath.Text = $script:SourcePath = "$($TempDirectory)\$(Split-Path $SourcePath -Leaf)"
+                        }
+
+                        $script:SourcePath = (Resolve-Path $SourcePath).Path
+
+                        Write-Verbose -Message "Scanning WIM metadata..."
+
+                        $tempOpenWim = $null
+
+                        try {
+                            $tempOpenWim = New-Object WIM2VHD.WimFile $SourcePath
+
+                            # Let's see if we're running against an unstaged build.  If we are, we need to blow up.
+                            if ($tempOpenWim.ImageNames.Contains("Windows Longhorn Client") -or
+                                $tempOpenWim.ImageNames.Contains("Windows Longhorn Server") -or
+                                $tempOpenWim.ImageNames.Contains("Windows Longhorn Server Core")) {
+                                [Windows.Forms.MessageBox]::Show(
+                                    "Convert-WindowsImage cannot run against unstaged builds. Please try again with a staged build.",
+                                    "WIM is incompatible!",
+                                    "OK",
+                                    "Error"
+                                )
+
+                                return
+                            }
+                            else {
+                                $tempOpenWim.Images | % { $cmbSkuList.Items.Add($_.ImageFlags) }
+                                $cmbSkuList.SelectedIndex = 0
+                            }
+
+                        }
+                        catch {
+                            throw "Unable to load WIM metadata!"
+                        }
+                        finally {
+                            $tempOpenWim.Close()
+                            Write-Debug -Message "  Closing WIM metadata..."
+                        }
                     }
                 }
 
-              # Choose smallest supported block size for dynamic VHD(X)
-                $BlockSizeBytes = 1MB
+                $OnLoadForm_StateCorrection = {
 
-              # There's a difference between the maximum sizes for VHDs and VHDXs.  Make sure we follow it.
-                If ("VHD" -ilike $VhdFormat)
-                {
-                    If ($SizeBytes -gt $vhdMaxSize)
-                    {
-                        Write-Warning -Message "For the VHD file format, the maximum file size is ~2040GB.  We're automatically setting the size to 2040GB for you."
-                        $SizeBytes = 2040GB
-                    }
-                    $BlockSizeBytes = 512KB
+                    # Correct the initial state of the form to prevent the .Net maximized form issue
+                    $frmMain.WindowState = $InitialFormWindowState
                 }
 
-              # Check if -VHDPath and -WorkingDirectory were both specified.
-                If (-Not [String]::IsNullOrEmpty( $VhdPath ) -And
-                    -Not [String]::IsNullOrEmpty( $WorkingDirectory ))
-                {
-                    If ($WorkingDirectory -ne $pwd)
-                    {
+                #endregion Event scriptblocks
 
-                      # If the WorkingDirectory is anything besides $pwd, tell people that the WorkingDirectory is being ignored.
-                        Write-Warning -Message "Specifying -VHDPath and -WorkingDirectory at the same time is contradictory."
-                        Write-Warning -Message "Ignoring the WorkingDirectory specification."
-                        $WorkingDirectory = Split-Path $VhdPath -Parent
-                    }
+                # Figure out VHD size and size unit.
+                $unit = $null
+                switch ([Math]::Round($SizeBytes.ToString().Length / 3)) {
+                    3 { $unit = "MB"; break }
+                    4 { $unit = "GB"; break }
+                    5 { $unit = "TB"; break }
+                    default { $unit = ""; break }
                 }
 
-                If ($VhdPath)
-                {
+                $quantity = Invoke-Expression -Command "$($SizeBytes) / 1$($unit)"
 
-                  # Check to see if there's a conflict between the specified file extension and the VhdFormat being used.
-                    $Ext = ( [IO.FileInfo]$VhdPath ).Extension
+                #region Form Code
+                #region frmMain
+                $frmMain.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 579
+                $System_Drawing_Size.Width = 512
+                $frmMain.ClientSize = $System_Drawing_Size
+                $frmMain.Font = New-Object System.Drawing.Font("Segoe UI", 10, 0, 3, 1)
+                $frmMain.FormBorderStyle = 1
+                $frmMain.MaximizeBox = $False
+                $frmMain.MinimizeBox = $False
+                $frmMain.Name = "frmMain"
+                $frmMain.StartPosition = 1
+                $frmMain.Text = "Convert-WindowsImage UI"
+                #endregion frmMain
 
-                    If (-Not ( $Ext -ilike ".$( $VhdFormat )" ))
-                    {
-                        Throw "There is a mismatch between the VHDPath file extension ($($ext.ToUpper())), and the VhdFormat (.$($VhdFormat)).  Please ensure that these match and try again."
-                    }
+                #region groupBox4
+                $groupBox4.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 10
+                $System_Drawing_Point.Y = 498
+                $groupBox4.Location = $System_Drawing_Point
+                $groupBox4.Name = "groupBox4"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 69
+                $System_Drawing_Size.Width = 489
+                $groupBox4.Size = $System_Drawing_Size
+                $groupBox4.TabIndex = 8
+                $groupBox4.TabStop = $False
+                $groupBox4.Text = "4. Make the VHD!"
+
+                $frmMain.Controls.Add($groupBox4)
+                #endregion groupBox4
+
+                #region btnGo
+                $btnGo.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 39
+                $System_Drawing_Point.Y = 24
+                $btnGo.Location = $System_Drawing_Point
+                $btnGo.Name = "btnGo"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 33
+                $System_Drawing_Size.Width = 415
+                $btnGo.Size = $System_Drawing_Size
+                $btnGo.TabIndex = 0
+                $btnGo.Text = "&Make my VHD"
+                $btnGo.UseVisualStyleBackColor = $True
+                $btnGo.DialogResult = "OK"
+                $btnGo.add_Click($btnGo_OnClick)
+
+                $groupBox4.Controls.Add($btnGo)
+                $frmMain.AcceptButton = $btnGo
+                #endregion btnGo
+
+                #region groupBox3
+                $groupBox3.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 10
+                $System_Drawing_Point.Y = 243
+                $groupBox3.Location = $System_Drawing_Point
+                $groupBox3.Name = "groupBox3"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 245
+                $System_Drawing_Size.Width = 489
+                $groupBox3.Size = $System_Drawing_Size
+                $groupBox3.TabIndex = 7
+                $groupBox3.TabStop = $False
+                $groupBox3.Text = "3. Choose configuration options"
+
+                $frmMain.Controls.Add($groupBox3)
+                #endregion groupBox3
+
+                #region txtVhdName
+                $txtVhdName.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 150
+                $txtVhdName.Location = $System_Drawing_Point
+                $txtVhdName.Name = "txtVhdName"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 418
+                $txtVhdName.Size = $System_Drawing_Size
+                $txtVhdName.TabIndex = 10
+
+                $groupBox3.Controls.Add($txtVhdName)
+                #endregion txtVhdName
+
+                #region txtUnattendFile
+                $txtUnattendFile.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 198
+                $txtUnattendFile.Location = $System_Drawing_Point
+                $txtUnattendFile.Name = "txtUnattendFile"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 418
+                $txtUnattendFile.Size = $System_Drawing_Size
+                $txtUnattendFile.TabIndex = 11
+
+                $groupBox3.Controls.Add($txtUnattendFile)
+                #endregion txtUnattendFile
+
+                #region label7
+                $label7.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 23
+                $System_Drawing_Point.Y = 180
+                $label7.Location = $System_Drawing_Point
+                $label7.Name = "label7"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 23
+                $System_Drawing_Size.Width = 175
+                $label7.Size = $System_Drawing_Size
+                $label7.Text = "Unattend File (Optional)"
+
+                $groupBox3.Controls.Add($label7)
+                #endregion label7
+
+                #region label6
+                $label6.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 23
+                $System_Drawing_Point.Y = 132
+                $label6.Location = $System_Drawing_Point
+                $label6.Name = "label6"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 23
+                $System_Drawing_Size.Width = 175
+                $label6.Size = $System_Drawing_Size
+                $label6.Text = "VHD Name (Optional)"
+
+                $groupBox3.Controls.Add($label6)
+                #endregion label6
+
+                #region btnUnattendBrowse
+                $btnUnattendBrowse.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 449
+                $System_Drawing_Point.Y = 199
+                $btnUnattendBrowse.Location = $System_Drawing_Point
+                $btnUnattendBrowse.Name = "btnUnattendBrowse"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 27
+                $btnUnattendBrowse.Size = $System_Drawing_Size
+                $btnUnattendBrowse.TabIndex = 9
+                $btnUnattendBrowse.Text = "..."
+                $btnUnattendBrowse.UseVisualStyleBackColor = $True
+                $btnUnattendBrowse.add_Click($btnUnattendBrowse_OnClick)
+
+                $groupBox3.Controls.Add($btnUnattendBrowse)
+                #endregion btnUnattendBrowse
+
+                #region btnWrkBrowse
+                $btnWrkBrowse.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 449
+                $System_Drawing_Point.Y = 98
+                $btnWrkBrowse.Location = $System_Drawing_Point
+                $btnWrkBrowse.Name = "btnWrkBrowse"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 27
+                $btnWrkBrowse.Size = $System_Drawing_Size
+                $btnWrkBrowse.TabIndex = 9
+                $btnWrkBrowse.Text = "..."
+                $btnWrkBrowse.UseVisualStyleBackColor = $True
+                $btnWrkBrowse.add_Click($btnWrkBrowse_OnClick)
+
+                $groupBox3.Controls.Add($btnWrkBrowse)
+                #endregion btnWrkBrowse
+
+                #region cmbVhdSizeUnit
+                $cmbVhdSizeUnit.DataBindings.DefaultDataSourceUpdateMode = 0
+                $cmbVhdSizeUnit.FormattingEnabled = $True
+                $cmbVhdSizeUnit.Items.Add("MB") | Out-Null
+                $cmbVhdSizeUnit.Items.Add("GB") | Out-Null
+                $cmbVhdSizeUnit.Items.Add("TB") | Out-Null
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 409
+                $System_Drawing_Point.Y = 42
+                $cmbVhdSizeUnit.Location = $System_Drawing_Point
+                $cmbVhdSizeUnit.Name = "cmbVhdSizeUnit"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 67
+                $cmbVhdSizeUnit.Size = $System_Drawing_Size
+                $cmbVhdSizeUnit.TabIndex = 5
+                $cmbVhdSizeUnit.Text = $unit
+
+                $groupBox3.Controls.Add($cmbVhdSizeUnit)
+                #endregion cmbVhdSizeUnit
+
+                #region numVhdSize
+                $numVhdSize.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 340
+                $System_Drawing_Point.Y = 42
+                $numVhdSize.Location = $System_Drawing_Point
+                $numVhdSize.Name = "numVhdSize"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 63
+                $numVhdSize.Size = $System_Drawing_Size
+                $numVhdSize.TabIndex = 4
+                $numVhdSize.Value = $quantity
+
+                $groupBox3.Controls.Add($numVhdSize)
+                #endregion numVhdSize
+
+                #region cmbVhdFormat
+                $cmbVhdFormat.DataBindings.DefaultDataSourceUpdateMode = 0
+                $cmbVhdFormat.FormattingEnabled = $True
+                $cmbVhdFormat.Items.Add("VHD")  | Out-Null
+                $cmbVhdFormat.Items.Add("VHDX") | Out-Null
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 42
+                $cmbVhdFormat.Location = $System_Drawing_Point
+                $cmbVhdFormat.Name = "cmbVhdFormat"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 136
+                $cmbVhdFormat.Size = $System_Drawing_Size
+                $cmbVhdFormat.TabIndex = 0
+                $cmbVhdFormat.Text = $VhdFormat
+
+                $groupBox3.Controls.Add($cmbVhdFormat)
+                #endregion cmbVhdFormat
+
+                #region label5
+                $label5.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 23
+                $System_Drawing_Point.Y = 76
+                $label5.Location = $System_Drawing_Point
+                $label5.Name = "label5"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 23
+                $System_Drawing_Size.Width = 264
+                $label5.Size = $System_Drawing_Size
+                $label5.TabIndex = 8
+                $label5.Text = "Working Directory"
+
+                $groupBox3.Controls.Add($label5)
+                #endregion label5
+
+                #region txtWorkingDirectory
+                $txtWorkingDirectory.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 99
+                $txtWorkingDirectory.Location = $System_Drawing_Point
+                $txtWorkingDirectory.Name = "txtWorkingDirectory"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 418
+                $txtWorkingDirectory.Size = $System_Drawing_Size
+                $txtWorkingDirectory.TabIndex = 7
+                $txtWorkingDirectory.Text = $WorkingDirectory
+
+                $groupBox3.Controls.Add($txtWorkingDirectory)
+                #endregion txtWorkingDirectory
+
+                #region label4
+                $label4.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 340
+                $System_Drawing_Point.Y = 21
+                $label4.Location = $System_Drawing_Point
+                $label4.Name = "label4"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 27
+                $System_Drawing_Size.Width = 86
+                $label4.Size = $System_Drawing_Size
+                $label4.TabIndex = 6
+                $label4.Text = "VHD Size"
+
+                $groupBox3.Controls.Add($label4)
+                #endregion label4
+
+                #region label3
+                $label3.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 176
+                $System_Drawing_Point.Y = 21
+                $label3.Location = $System_Drawing_Point
+                $label3.Name = "label3"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 27
+                $System_Drawing_Size.Width = 92
+                $label3.Size = $System_Drawing_Size
+                $label3.TabIndex = 3
+                $label3.Text = "VHD Type"
+
+                $groupBox3.Controls.Add($label3)
+                #endregion label3
+
+                #region label2
+                $label2.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 21
+                $label2.Location = $System_Drawing_Point
+                $label2.Name = "label2"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 30
+                $System_Drawing_Size.Width = 118
+                $label2.Size = $System_Drawing_Size
+                $label2.TabIndex = 1
+                $label2.Text = "VHD Format"
+
+                $groupBox3.Controls.Add($label2)
+                #endregion label2
+
+                #region groupBox2
+                $groupBox2.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 10
+                $System_Drawing_Point.Y = 169
+                $groupBox2.Location = $System_Drawing_Point
+                $groupBox2.Name = "groupBox2"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 68
+                $System_Drawing_Size.Width = 490
+                $groupBox2.Size = $System_Drawing_Size
+                $groupBox2.TabIndex = 6
+                $groupBox2.TabStop = $False
+                $groupBox2.Text = "2. Choose a SKU from the list"
+
+                $frmMain.Controls.Add($groupBox2)
+                #endregion groupBox2
+
+                #region cmbSkuList
+                $cmbSkuList.DataBindings.DefaultDataSourceUpdateMode = 0
+                $cmbSkuList.FormattingEnabled = $True
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 24
+                $cmbSkuList.Location = $System_Drawing_Point
+                $cmbSkuList.Name = "cmbSkuList"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 452
+                $cmbSkuList.Size = $System_Drawing_Size
+                $cmbSkuList.TabIndex = 2
+
+                $groupBox2.Controls.Add($cmbSkuList)
+                #endregion cmbSkuList
+
+                #region label1
+                $label1.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 23
+                $System_Drawing_Point.Y = 21
+                $label1.Location = $System_Drawing_Point
+                $label1.Name = "label1"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 71
+                $System_Drawing_Size.Width = 464
+                $label1.Size = $System_Drawing_Size
+                $label1.TabIndex = 5
+                $label1.Text = $uiHeader
+
+                $frmMain.Controls.Add($label1)
+                #endregion label1
+
+                #region groupBox1
+                $groupBox1.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 10
+                $System_Drawing_Point.Y = 95
+                $groupBox1.Location = $System_Drawing_Point
+                $groupBox1.Name = "groupBox1"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 68
+                $System_Drawing_Size.Width = 490
+                $groupBox1.Size = $System_Drawing_Size
+                $groupBox1.TabIndex = 4
+                $groupBox1.TabStop = $False
+                $groupBox1.Text = "1. Choose a source"
+
+                $frmMain.Controls.Add($groupBox1)
+                #endregion groupBox1
+
+                #region txtSourcePath
+                $txtSourcePath.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 25
+                $System_Drawing_Point.Y = 24
+                $txtSourcePath.Location = $System_Drawing_Point
+                $txtSourcePath.Name = "txtSourcePath"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 418
+                $txtSourcePath.Size = $System_Drawing_Size
+                $txtSourcePath.TabIndex = 0
+
+                $groupBox1.Controls.Add($txtSourcePath)
+                #endregion txtSourcePath
+
+                #region btnBrowseWim
+                $btnBrowseWim.DataBindings.DefaultDataSourceUpdateMode = 0
+                $System_Drawing_Point = New-Object System.Drawing.Point
+                $System_Drawing_Point.X = 449
+                $System_Drawing_Point.Y = 24
+                $btnBrowseWim.Location = $System_Drawing_Point
+                $btnBrowseWim.Name = "btnBrowseWim"
+                $System_Drawing_Size = New-Object System.Drawing.Size
+                $System_Drawing_Size.Height = 25
+                $System_Drawing_Size.Width = 28
+                $btnBrowseWim.Size = $System_Drawing_Size
+                $btnBrowseWim.TabIndex = 1
+                $btnBrowseWim.Text = "..."
+                $btnBrowseWim.UseVisualStyleBackColor = $True
+                $btnBrowseWim.add_Click($btnBrowseWim_OnClick)
+
+                $groupBox1.Controls.Add($btnBrowseWim)
+                #endregion btnBrowseWim
+
+                $openFileDialog1.FileName = "openFileDialog1"
+                $openFileDialog1.ShowHelp = $True
+
+                #endregion Form Code
+
+                # Save the initial state of the form
+                $InitialFormWindowState = $frmMain.WindowState
+
+                # Init the OnLoad event to correct the initial state of the form
+                $frmMain.add_Load($OnLoadForm_StateCorrection)
+
+                # Return the constructed form.
+                $ret = $frmMain.ShowDialog()
+
+                if (!($ret -ilike "OK")) {
+                    throw "Form session has been cancelled."
                 }
 
-              # Create a temporary name for the VHD(x).  We'll name it properly at the end of the script.
-                If ([String]::IsNullOrEmpty( $VhdPath ))
-                {
-                    $vhdNameTemp  = [system.string]( $sessionKey + "." + $VhdFormat.ToLower() )
-                    $VhdPath      = Join-Path -Path $WorkingDirectory -ChildPath $vhdNameTemp
+                if ([string]::IsNullOrEmpty($SourcePath)) {
+                    throw "No source path specified."
                 }
 
-                Else
-                {
+                # VHD Format
+                $VhdFormat = $cmbVhdFormat.SelectedItem
 
-                  # Since we can't do Resolve-Path against a file that doesn't exist, we need to get creative in determining
-                  # the full path that the user specified (or meant to specify if they gave us a relative path).
-                  # Check to see if the path has a root specified.  If it doesn't, use the working directory.
+                # VHD Size
+                $SizeBytes = Invoke-Expression "$($numVhdSize.Value)$($cmbVhdSizeUnit.SelectedItem)"
 
-                    If (-Not [IO.Path]::IsPathRooted( $VhdPath ))
-                    {
-                        $VhdPath  = Join-Path -Path $WorkingDirectory -ChildPath $VhdPath
-                    }
+                # Working Directory
+                $WorkingDirectory = $txtWorkingDirectory.Text
 
-                    $vhdFinalName = Split-Path -Path $VhdPath -Leaf
-                    $VhdPath      = Split-Path -Path $VhdPath -Parent
-                    $vhdNameTemp  = [system.string]( $sessionKey + "." + $VhdFormat.ToLower() )
-                    $VhdPath      = Join-Path  -Path $VhdPath -ChildPath $vhdNameTemp
+                # VHDPath
+                if (![string]::IsNullOrEmpty($txtVhdName.Text)) {
+                    $VhdPath = "$($WorkingDirectory)\$($txtVhdName.Text)"
                 }
 
-                Write-Debug -Message "  Temporary $VhdFormat path is: `"$VhdPath`""
+                # Edition
+                if (![string]::IsNullOrEmpty($cmbSkuList.SelectedItem)) {
+                    $Edition = $cmbSkuList.SelectedItem
+                }
 
-           #endregion Prepare variables
+                # Because we used ShowDialog, we need to manually dispose of the form.
+                # This probably won't make much of a difference, but let's free up all of the resources we can
+                # before we start the conversion process.
 
-           #region Mount source images
+                $frmMain.Dispose()
+            }
 
-              # If we're using an ISO, mount it and get the path to the WIM file.
-                If (( [IO.FileInfo]$SourcePath ).Extension -ilike ".ISO")
-                {
+            If ($VhdFormat -ilike "AUTO") {
+                If ($DiskLayout -eq "Bios") {
+                    $VhdFormat = "VHD"
+                }
+                Else {
+                    $VhdFormat = "VHDX"
+                }
+            }
 
-                  # If the ISO isn't local, copy it down so we don't have to worry about resource contention
-                  # or about network latency.
-                    If (Test-IsNetworkLocation -Path $SourcePath)
-                    {
-                        $IsoFileName = Split-Path -Path $SourcePath -Leaf
+            # Choose smallest supported block size for dynamic VHD(X)
+            $BlockSizeBytes = 1MB
 
-                        Write-Verbose -Message "Copying ISO `"$IsoFileName`" to temp folder..."
+            # There's a difference between the maximum sizes for VHDs and VHDXs.  Make sure we follow it.
+            If ("VHD" -ilike $VhdFormat) {
+                If ($SizeBytes -gt $vhdMaxSize) {
+                    Write-Warning -Message "For the VHD file format, the maximum file size is ~2040GB.  We're automatically setting the size to 2040GB for you."
+                    $SizeBytes = 2040GB
+                }
+                $BlockSizeBytes = 512KB
+            }
+
+            # Check if -VHDPath and -WorkingDirectory were both specified.
+            If (-Not [String]::IsNullOrEmpty( $VhdPath ) -And
+                -Not [String]::IsNullOrEmpty( $WorkingDirectory )) {
+                If ($WorkingDirectory -ne $pwd) {
+
+                    # If the WorkingDirectory is anything besides $pwd, tell people that the WorkingDirectory is being ignored.
+                    Write-Warning -Message "Specifying -VHDPath and -WorkingDirectory at the same time is contradictory."
+                    Write-Warning -Message "Ignoring the WorkingDirectory specification."
+                    $WorkingDirectory = Split-Path $VhdPath -Parent
+                }
+            }
+
+            If ($VhdPath) {
+
+                # Check to see if there's a conflict between the specified file extension and the VhdFormat being used.
+                $Ext = ( [IO.FileInfo]$VhdPath ).Extension
+
+                If (-Not ( $Ext -ilike ".$( $VhdFormat )" )) {
+                    Throw "There is a mismatch between the VHDPath file extension ($($ext.ToUpper())), and the VhdFormat (.$($VhdFormat)).  Please ensure that these match and try again."
+                }
+            }
+
+            # Create a temporary name for the VHD(x).  We'll name it properly at the end of the script.
+            If ([String]::IsNullOrEmpty( $VhdPath )) {
+                $vhdNameTemp = [system.string]( $sessionKey + "." + $VhdFormat.ToLower() )
+                $VhdPath = Join-Path -Path $WorkingDirectory -ChildPath $vhdNameTemp
+            }
+
+            Else {
+
+                # Since we can't do Resolve-Path against a file that doesn't exist, we need to get creative in determining
+                # the full path that the user specified (or meant to specify if they gave us a relative path).
+                # Check to see if the path has a root specified.  If it doesn't, use the working directory.
+
+                If (-Not [IO.Path]::IsPathRooted( $VhdPath )) {
+                    $VhdPath = Join-Path -Path $WorkingDirectory -ChildPath $VhdPath
+                }
+
+                $vhdFinalName = Split-Path -Path $VhdPath -Leaf
+                $VhdPath = Split-Path -Path $VhdPath -Parent
+                $vhdNameTemp = [system.string]( $sessionKey + "." + $VhdFormat.ToLower() )
+                $VhdPath = Join-Path  -Path $VhdPath -ChildPath $vhdNameTemp
+            }
+
+            Write-Debug -Message "  Temporary $VhdFormat path is: `"$VhdPath`""
+
+            #endregion Prepare variables
+
+            #region Mount source images
+
+            # If we're using an ISO, mount it and get the path to the WIM file.
+            If (( [IO.FileInfo]$SourcePath ).Extension -ilike ".ISO") {
+
+                # If the ISO isn't local, copy it down so we don't have to worry about resource contention
+                # or about network latency.
+                If (Test-IsNetworkLocation -Path $SourcePath) {
+                    $IsoFileName = Split-Path -Path $SourcePath -Leaf
+
+                    Write-Verbose -Message "Copying ISO `"$IsoFileName`" to temp folder..."
 
                     #    Robocopy.exe $(Split-Path $SourcePath -Parent) $TempDirectory $(Split-Path $SourcePath -Leaf) | Out-Null
-                        $Item = Copy-Item -Path $SourcePath -Destination $TempDirectory -PassThru
-
-                        $SourcePath = Join-Path -Path $TempDirectory -ChildPath $IsoFileName
-
-                        $tempSource = $SourcePath
-                    }
-
-                    $IsoPath     = ( Resolve-Path $SourcePath ).Path
-                    $IsoFileName = Split-Path $IsoPath -Leaf
-
-                    Write-Verbose -Message "Opening ISO `"$IsoFileName`"..."
-                    $openIso     = Mount-DiskImage -ImagePath $IsoPath -StorageType "ISO" -PassThru
-
-                  # Refresh the DiskImage and Drive object so we can get the real information about it.  I assume this is a bug.
-                    Get-PSDrive -PSProvider FileSystem | Out-Null
-                    $openIso     = Get-DiskImage -ImagePath $IsoPath
-                    $driveLetter = ( Get-Volume -DiskImage $openIso ).DriveLetter
-
-                    $SourcePath  = "$($driveLetter):\sources\install.wim"
-
-                  # Check to see if there's a WIM file we can muck about with.
-                    Write-Verbose -Message "Looking for `"$SourcePath`"..."
-
-                    If (-Not ( Test-Path -Path $SourcePath ))
-                    {
-                        Throw "The specified ISO does not appear to be valid Windows installation media."
-                    }
-                }
-
-              # Check to see if the WIM is local, or on a network location.  If the latter, copy it locally.
-                If (Test-IsNetworkLocation -Path $SourcePath)
-                {
-                    $WimFileName = Split-Path -Path $SourcePath -Leaf
-
-                    Write-Verbose -Message "Copying WIM $WimFileName to temp folder..."
-
-                  # robocopy $(Split-Path $SourcePath -Parent) $TempDirectory $(Split-Path $SourcePath -Leaf) | Out-Null
                     $Item = Copy-Item -Path $SourcePath -Destination $TempDirectory -PassThru
 
-                    $SourcePath = Join-Path -Path $TempDirectory -ChildPath $WimFileName
+                    $SourcePath = Join-Path -Path $TempDirectory -ChildPath $IsoFileName
 
                     $tempSource = $SourcePath
                 }
 
-                $SourcePath  = ( Resolve-Path $SourcePath ).Path
+                $IsoPath = ( Resolve-Path $SourcePath ).Path
+                $IsoFileName = Split-Path $IsoPath -Leaf
 
-              # QUERY WIM INFORMATION AND EXTRACT THE INDEX OF TARGETED IMAGE
+                Write-Verbose -Message "Opening ISO `"$IsoFileName`"..."
+                $openIso = Mount-DiskImage -ImagePath $IsoPath -StorageType "ISO" -PassThru
 
-                Write-Verbose -Message "Looking for the requested Windows image in the WIM file"
+                # Refresh the DiskImage and Drive object so we can get the real information about it.  I assume this is a bug.
+                Get-PSDrive -PSProvider FileSystem | Out-Null
+                $openIso = Get-DiskImage -ImagePath $IsoPath
+                $driveLetter = ( Get-Volume -DiskImage $openIso ).DriveLetter
 
-                $WindowsImage = Get-WindowsImage -ImagePath $SourcePath -Verbose:$False
+                $SourcePath = "$($driveLetter):\sources\install.wim"
 
-              # We're good.  Open the WIM container.
+                # Check to see if there's a WIM file we can muck about with.
+                Write-Verbose -Message "Looking for `"$SourcePath`"..."
 
-              # NOTE: this is only required because we want to get the XML-based meta-data at the end.  Is there a better way?
-              # If we can get this information from DISM cmdlets, we can remove the openWim constructs
+                If (-Not ( Test-Path -Path $SourcePath )) {
+                    Throw "The specified ISO does not appear to be valid Windows installation media."
+                }
+            }
 
-                $openWim   = New-Object -TypeName "WIM2VHD.WimFile" -ArgumentList $SourcePath
+            # Check to see if the WIM is local, or on a network location.  If the latter, copy it locally.
+            If (Test-IsNetworkLocation -Path $SourcePath) {
+                $WimFileName = Split-Path -Path $SourcePath -Leaf
 
-           #endregion Mount source images
+                Write-Verbose -Message "Copying WIM $WimFileName to temp folder..."
+
+                # robocopy $(Split-Path $SourcePath -Parent) $TempDirectory $(Split-Path $SourcePath -Leaf) | Out-Null
+                $Item = Copy-Item -Path $SourcePath -Destination $TempDirectory -PassThru
+
+                $SourcePath = Join-Path -Path $TempDirectory -ChildPath $WimFileName
+
+                $tempSource = $SourcePath
+            }
+
+            $SourcePath = ( Resolve-Path $SourcePath ).Path
+
+            # QUERY WIM INFORMATION AND EXTRACT THE INDEX OF TARGETED IMAGE
+
+            Write-Verbose -Message "Looking for the requested Windows image in the WIM file"
+
+            $WindowsImage = Get-WindowsImage -ImagePath $SourcePath -Verbose:$False
+
+            # We're good.  Open the WIM container.
+
+            # NOTE: this is only required because we want to get the XML-based meta-data at the end.  Is there a better way?
+            # If we can get this information from DISM cmdlets, we can remove the openWim constructs
+
+            $openWim = New-Object -TypeName "WIM2VHD.WimFile" -ArgumentList $SourcePath
+
+            #endregion Mount source images
 
             $Edition | ForEach-Object -Process {
 
-               #region Select Image
+                #region Select Image
 
-                    $Edition = $PSItem
+                $Edition = $PSItem
 
-                  # WIM may have multiple images.  Filter on Edition (can be index or name) and try to find a unique image
+                # WIM may have multiple images.  Filter on Edition (can be index or name) and try to find a unique image
 
-                    Write-Verbose -Message ( [system.string]::Empty )
+                Write-Verbose -Message ( [system.string]::Empty )
 
-                    $EditionIndex = 0;
+                $EditionIndex = 0;
 
-                    If ([Int32]::TryParse( $Edition, [ref]$EditionIndex ))
-                    {
-                        $WindowsImage = Get-WindowsImage -ImagePath $SourcePath -Index $EditionIndex -Verbose:$False
+                If ([Int32]::TryParse( $Edition, [ref]$EditionIndex )) {
+                    $WindowsImage = Get-WindowsImage -ImagePath $SourcePath -Index $EditionIndex -Verbose:$False
+                }
+                Else {
+                    $WindowsImage = Get-WindowsImage -ImagePath $SourcePath -Verbose:$False | Where-Object { $PSItem.ImageName -ilike "*$($Edition)" }
+                }
+
+                If (-Not $WindowsImage) {
+                    Throw "Requested windows Image was not found on the WIM file!"
+                }
+
+                If ($WindowsImage -is [System.Array]) {
+                    $ImageCount = $($WindowsImage.Count)
+
+                    Write-Verbose -Message "WIM file has the following $ImageCount images that match filter *$Edition"
+                    Get-WindowsImage -ImagePath $SourcePath -Verbose:$False
+
+                    Write-Error -Message "You must specify an Edition or SKU index, since the WIM has more than one image."
+                    Throw "There are more than one images that match ImageName filter *$Edition"
+                }
+
+                $ImageIndex = $WindowsImage[0].ImageIndex
+
+                $openImage = $openWim[[Int32]$ImageIndex]
+
+                If ($Null -eq $openImage) {
+                    Write-Error -Message "The specified edition does not appear to exist in the specified WIM."
+                    Write-Error -Message "Valid edition names are:"
+
+                    $openWim.Images | ForEach-Object -Process { Write-Error -Message "$PSItem.ImageFlags" }
+                    Throw
+                }
+
+                $OpenImageIndex = $openImage.ImageIndex
+                $OpenImageFlags = $openImage.ImageFlags
+                $OpenImageVersion = $openImage.ImageVersion
+
+                Write-Verbose -Message "Image $OpenImageIndex selected: `"$OpenImageFlags`"..."
+
+                # Check to make sure that the image we're applying is Windows 7 or greater.
+                If ($OpenImageVersion -lt $lowestSupportedVersion) {
+                    If ($OpenImageVersion -eq "0.0.0.0") {
+                        Write-Warning -Message "The specified WIM does not encode the Windows version."
                     }
-                    Else
-                    {
-                        $WindowsImage = Get-WindowsImage -ImagePath $SourcePath -Verbose:$False | Where-Object { $PSItem.ImageName -ilike "*$($Edition)" }
+                    Else {
+                        Throw "Convert-WindowsImage only supports Windows 7 and Windows 8 WIM files.  The specified image (version $OpenImageVersion) does not appear to contain one of those operating systems."
+                    }
+                }
+
+                #endregion Select Image
+
+                #region Create and partition VHD
+
+                If ($hyperVEnabled) {
+                    Write-Verbose -Message "Creating sparse disk..."
+
+                    $NewVhdParam = @{
+
+                        Path           = $VhdPath
+                        SizeBytes      = $SizeBytes
+                        BlockSizeBytes = $BlockSizeBytes
                     }
 
-                    If (-Not $WindowsImage)
-                    {
-                        Throw "Requested windows Image was not found on the WIM file!"
-                    }
-
-                    If ($WindowsImage -is [System.Array])
-                    {
-                        $ImageCount = $($WindowsImage.Count)
-
-                        Write-Verbose -Message "WIM file has the following $ImageCount images that match filter *$Edition"
-                        Get-WindowsImage -ImagePath $SourcePath -Verbose:$False
-
-                        Write-Error -Message "You must specify an Edition or SKU index, since the WIM has more than one image."
-                        Throw "There are more than one images that match ImageName filter *$Edition"
-                    }
-
-                    $ImageIndex = $WindowsImage[0].ImageIndex
-
-                    $openImage = $openWim[[Int32]$ImageIndex]
-
-                    If ($Null -eq $openImage)
-                    {
-                        Write-Error -Message "The specified edition does not appear to exist in the specified WIM."
-                        Write-Error -Message "Valid edition names are:"
-
-                        $openWim.Images | ForEach-Object -Process { Write-Error -Message "$PSItem.ImageFlags" }
-                        Throw
-                    }
-
-                    $OpenImageIndex   = $openImage.ImageIndex
-                    $OpenImageFlags   = $openImage.ImageFlags
-                    $OpenImageVersion = $openImage.ImageVersion
-
-                    Write-Verbose -Message "Image $OpenImageIndex selected: `"$OpenImageFlags`"..."
-
-                  # Check to make sure that the image we're applying is Windows 7 or greater.
-                    If ($OpenImageVersion -lt $lowestSupportedVersion)
-                    {
-                        If ($OpenImageVersion -eq "0.0.0.0")
-                        {
-                            Write-Warning -Message "The specified WIM does not encode the Windows version."
-                        }
-                        Else
-                        {
-                            Throw "Convert-WindowsImage only supports Windows 7 and Windows 8 WIM files.  The specified image (version $OpenImageVersion) does not appear to contain one of those operating systems."
-                        }
-                    }
-
-               #endregion Select Image
-
-               #region Create and partition VHD
-
-                    If ($hyperVEnabled)
-                    {
-                        Write-Verbose -Message "Creating sparse disk..."
-
-                        $NewVhdParam = @{
-
-                            Path           = $VhdPath
-                            SizeBytes      = $SizeBytes
-                            BlockSizeBytes = $BlockSizeBytes
+                    Switch ($VhdType) {
+                        "Dynamic" {
+                            $NewVhdParam.Add(
+                                "Dynamic", $True
+                            )
                         }
 
-                        Switch ($VhdType)
-                        {
-                            "Dynamic"
-                            {
-                                $NewVhdParam.Add(
-                                    "Dynamic", $True
-                                )
-                            }
-
-                            "Fixed"
-                            {}
-                        }
-
-                        $newVhd = New-Vhd @NewVhdParam
-
-                        Write-Verbose -Message "Mounting $VhdFormat..."
-                        $disk = $newVhd | Mount-VHD -PassThru | Get-Disk
+                        "Fixed"
+                        {}
                     }
-                    Else
-                    {
-                        <#
+
+                    $newVhd = New-VHD @NewVhdParam
+
+                    Write-Verbose -Message "Mounting $VhdFormat..."
+                    $disk = $newVhd | Mount-VHD -Passthru | Get-Disk
+                }
+                Else {
+                    <#
                             Create the VHD using the VirtDisk Win32 API.
                             So, why not use the New-VHD cmdlet here?
 
@@ -1780,677 +1716,603 @@ You can use the fields below to configure the VHD or VHDX that you want to creat
                             VirtDisk APIs directly.
                         #>
 
-                        Switch ($VhdType)
-                        {
-                            "Dynamic"
-                            {
-                                Write-Verbose -Message "Creating sparse disk..."
+                    Switch ($VhdType) {
+                        "Dynamic" {
+                            Write-Verbose -Message "Creating sparse disk..."
 
-                                [WIM2VHD.VirtualHardDisk]::CreateSparseDisk(
-                                    $VhdFormat,
-                                    $VhdPath,
-                                    $SizeBytes,
-                                    $true
-                                )
-                            }
-
-                            "Fixed"
-                            {
-                                Write-Verbose -Message "Creating fixed disk..."
-
-                                [WIM2VHD.VirtualHardDisk]::CreateFixedDisk(
-                                    $VhdFormat,
-                                    $VhdPath,
-                                    $SizeBytes,
-                                    $true
-                                )
-                            }
-                        }
-
-                      # Attach the VHD.
-
-                        Write-Verbose -Message "Attaching $VhdFormat..."
-                        $disk = Mount-DiskImage -ImagePath $VhdPath -PassThru | Get-DiskImage | Get-Disk
-                    }
-
-                    Switch ($DiskLayout)
-                    {
-                        "BIOS"
-                        {
-                            Write-Verbose -Message "Initializing disk..."
-                            Initialize-Disk -Number $disk.Number -PartitionStyle MBR
-
-                          # Create the Windows/system partition
-                            Write-Verbose -Message "Creating single partition..."
-
-                            $systemPartition  = New-Partition -DiskNumber $disk.Number -UseMaximumSize -MbrType IFS -IsActive
-                            $windowsPartition = $systemPartition
-
-                            Write-Verbose -Message "Formatting windows volume..."
-
-                            $systemVolume  = Format-Volume -Partition $systemPartition -FileSystem NTFS -Force -Confirm:$false
-                            $windowsVolume = $systemVolume
-                        }
-
-                        "UEFI"
-                        {
-                            Write-Verbose -Message "Initializing disk..."
-                            Initialize-Disk -Number $disk.Number -PartitionStyle GPT
-
-                            If ($BcdInVhd -eq "VirtualMachine")
-                            {
-                                If (( Get-WindowsBuildNumber ) -ge 10240)
-                                {
-
-                                  # Create the system partition.  Create a data partition so we can format it, then change to ESP
-                                  # Size should be at least 260 MB to accomodate for Native 4K drives.
-                                    Write-Verbose -Message "Creating EFI System partition (ESP)..."
-                                    $systemPartition = New-Partition -DiskNumber $disk.Number -Size 260MB -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'
-
-                                    Write-Verbose -Message "  Formatting System volume..."
-                                    $systemVolume = Format-Volume -Partition $systemPartition -FileSystem FAT32 -Force -Confirm:$false
-
-                                    Write-Verbose -Message "  Setting partition type to ESP..."
-                                    $systemPartition | Set-Partition -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
-                                    $systemPartition | Add-PartitionAccessPath -AssignDriveLetter
-                                }
-                                else
-                                {
-
-                                  # Create the system partition
-                                    Write-Verbose -Message "Creating EFI system partition (ESP)..."
-                                    $systemPartition = New-Partition -DiskNumber $disk.Number -Size 260MB -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}' -AssignDriveLetter
-
-                                    Write-Verbose -Message "  Formatting ESP..."
-                                    $formatArgs = @(
-                                        "$($systemPartition.DriveLetter):", # Partition drive letter
-                                        "/FS:FAT32",                        # File system
-                                        "/Q",                               # Quick format
-                                        "/Y"                                # Suppress prompt
-                                        )
-
-                                    Start-Executable -Executable format -Arguments $formatArgs
-                                }
-                            }
-                            Else
-                            {
-                                Write-Verbose -Message "The disk is intended for Native Boot. There will be no EFI System partition (ESP)."
-                            }
-
-                          # Create the Windows partition
-                            Write-Verbose -Message "Creating Boot (`"Windows`") partition..."
-                            $windowsPartition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'
-
-                            Write-Verbose -Message "  Formatting Boot (`"Windows`") volume..."
-                            $windowsVolume = Format-Volume -Partition $windowsPartition -FileSystem NTFS -Force -Confirm:$false
-                        }
-
-                        "WindowsToGo"
-                        {
-                            Write-Verbose -Message "Initializing disk..."
-                            Initialize-Disk -Number $disk.Number -PartitionStyle MBR
-
-                          # Create the system partition
-                            Write-Verbose -Message "Creating system partition..."
-                            $systemPartition = New-Partition -DiskNumber $disk.Number -Size 260MB -MbrType FAT32 -IsActive
-
-                            Write-Verbose -Message "  Formatting system volume..."
-                            $systemVolume    = Format-Volume -Partition $systemPartition -FileSystem FAT32 -Force -Confirm:$false
-
-                          # Create the Windows partition
-                            Write-Verbose -Message "Creating windows partition..."
-                            $windowsPartition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -MbrType IFS
-
-                            Write-Verbose -Message "  Formatting windows volume..."
-                            $windowsVolume    = Format-Volume -Partition $windowsPartition -FileSystem NTFS -Force -Confirm:$false
-                        }
-                    }
-
-                    If (( $DiskLayout -eq "UEFI" -and $BcdInVhd -eq "VirtualMachine" ) -or
-                        ( $DiskLayout -eq "WindowsToGo") -or
-                        ( $DiskLayout -eq "BIOS"))
-                    {
-                      # Retreive access path for System partition.
-                        $systemPartition = Get-Partition -UniqueId $systemPartition.UniqueId
-                        $systemDrive = $systemPartition.AccessPaths[0].trimend("\").replace("\?", "??")
-                        Write-Verbose -Message "System volume path: `"$systemDrive`""
-                    }
-
-                  # Assign drive letter to Boot partition.  This is required for bcdboot
-                    $attempts = 1
-                    $assigned = $false
-
-                    Do
-                    {
-                        $windowsPartition | Add-PartitionAccessPath -AssignDriveLetter
-                        $windowsPartition = $windowsPartition | Get-Partition
-
-                        If ($windowsPartition.DriveLetter -ne 0)
-                        {
-                            $assigned = $true
-                        }
-                        else
-                        {
-
-                          # sleep for up to 10 seconds and retry
-                            Get-Random -Minimum 1 -Maximum 10 | Start-Sleep
-
-                            $attempts++
-                        }
-                    }
-                    While ($attempts -le 100 -and -not $assigned)
-
-                    If (-Not $assigned)
-                    {
-                        Throw "Unable to get Partition after retry"
-                    }
-
-                    $windowsDrive = ( Get-Partition -Volume $windowsVolume ).AccessPaths[0].substring(0,2)
-
-                  # This is to workaround "No such drive exists" error in PowerShell
-                    $Drive = Get-psDrive
-
-                    $windowsDrive = ( Resolve-Path -Path $windowsDrive ).Path
-
-                    Write-Verbose -Message "Boot volume path: `"$windowsDrive`". (Took $attempts attempt(s) to assign.)"
-
-               #endregion Create and partition VHD
-
-               #region APPLY IMAGE FROM WIM TO THE NEW VHD
-
-                    Write-Verbose -Message "Applying image to $VhdFormat. This could take a while..."
-
-                    If (( Get-Command -Name "Expand-WindowsImage" -ErrorAction "SilentlyContinue" ) -and
-                        ( -not $ApplyEA -and [string]::IsNullOrEmpty( $DismPath ) ))
-                    {
-                        Expand-WindowsImage -ApplyPath $windowsDrive -ImagePath $SourcePath -Index $ImageIndex -LogPath "$($logFolder)\DismLogs.log" -Verbose:$False | Out-Null
-                    }
-                    Else
-                    {
-                        If ([string]::IsNullOrEmpty( $DismPath ))
-                        {
-                            $DismPath = Join-Path -Path $env:windir -ChildPath "system32\dism.exe"
-                        }
-
-                        $applyImage = "/Apply-Image"
-
-                        If ($ApplyEA)
-                        {
-                            $applyImage = $applyImage + " /EA"
-                        }
-
-                        $dismArgs = @("$applyImage /ImageFile:`"$SourcePath`" /Index:$ImageIndex /ApplyDir:$windowsDrive /LogPath:`"$($logFolder)\DismLogs.log`"")
-
-                        Write-Verbose -Message "Applying image: $dismPath $dismArgs"
-
-                        $process = Start-Process -Passthru -Wait -NoNewWindow -FilePath $dismPath -ArgumentList $dismArgs
-
-                        If ($process.ExitCode -ne 0)
-                        {
-                             Throw "Image Apply failed! See DismImageApply logs for details"
-                        }
-                    }
-                    Write-Verbose -Message "Image was applied successfully. "
-
-                  # Here we copy in the unattend file (if specified by the command line)
-
-                    If (-Not [string]::IsNullOrEmpty( $UnattendPath ))
-                    {
-                        Write-Verbose -Message "Applying unattend file ($(Split-Path $UnattendPath -Leaf))..."
-
-                        $UnattendDestination = Join-Path -Path $windowsDrive -ChildPath "unattend.xml"
-                        Copy-Item -Path $UnattendPath -Destination $UnattendDestination -Force
-                    }
-
-                  # Added to handle merge folders
-
-                    If (-Not [string]::IsNullOrEmpty( $MergeFolderPath ))
-                    {
-                        Write-Verbose -Message "Applying merge folder ($MergeFolderPath)..."
-
-                        $MergeSourcePath = Join-Path -Path $MergeFolderPath -ChildPath "*"
-
-                        Copy-Item -Recurse -Path $MergeFolderPath -Destination $windowsDrive -Force
-                    }
-
-               #endregion APPLY IMAGE FROM WIM TO THE NEW VHD
-
-               #region BCD manipulation
-
-                    If (( $openImage.ImageArchitecture -ne "ARM" ) -and       # No virtualization platform for ARM images
-                        ( $BcdInVhd -ne "NativeBoot" ))                       # User asked for a non-bootable image
-                    {
-                        If (Test-Path -Path "$($systemDrive)\boot\bcd")
-                        {
-                            Write-Verbose -Message "Image already has BIOS BCD store..."
-                        }
-                        ElseIf (Test-Path -Path "$($systemDrive)\efi\microsoft\boot\bcd")
-                        {
-                            Write-Verbose -Message "Image already has EFI BCD store..."
-                        }
-                        Else
-                        {
-                            Write-Verbose -Message "Making image bootable..."
-
-                            $WindowsPath = Join-Path -Path $windowsDrive -ChildPath "Windows"
-
-                            $bcdBootArgs = @(
-
-                                "$WindowsPath",             # Path to the \Windows on the VHD
-                                "/s $systemDrive",          # Specifies the volume letter of the drive to create the \BOOT folder on.
-                                "/v"                        # Enabled verbose logging.
+                            [WIM2VHD.VirtualHardDisk]::CreateSparseDisk(
+                                $VhdFormat,
+                                $VhdPath,
+                                $SizeBytes,
+                                $true
                             )
-
-                            $bcdPath = @()
-
-                            Switch ($DiskLayout)
-                            {
-                                "BIOS"
-                                {
-                                    $bcdBootArgs += "/f BIOS"   # Specifies the firmware type of the target system partition
-                                    $bcdPath     += Join-Path -Path $systemDrive -ChildPath "boot\bcd"
-                                }
-
-                                "UEFI"
-                                {
-                                    $bcdBootArgs += "/f UEFI"   # Specifies the firmware type of the target system partition
-                                    $bcdPath     += Join-Path -Path $systemDrive -ChildPath "efi\microsoft\boot\bcd"
-                                }
-
-                                "WindowsToGo"
-                                {
-
-                                  # Create entries for both UEFI and BIOS if possible
-
-                                    If (Test-Path -Path "$($windowsDrive)\Windows\boot\EFI\bootmgfw.efi")
-                                    {
-                                        $bcdBootArgs += "/f ALL"
-                                        $bcdPath     += Join-Path -Path $systemDrive -ChildPath "boot\bcd"
-                                        $bcdPath     += Join-Path -Path $systemDrive -ChildPath "efi\microsoft\boot\bcd"
-                                    }
-                                    Else
-                                    {
-                                        $bcdBootArgs += "/f BIOS"   # Specifies the firmware type of the target system partition
-                                        $bcdPath     += Join-Path -Path $systemDrive -ChildPath "boot\bcd"
-                                    }
-                                }
-                            }
-
-                            If (Test-Path -Path "Variable:\BcdLocale")
-                            {
-                                $bcdBootArgs += "/l $BcdLocale.Name"
-                            }
-
-                            Start-Executable -Executable $BCDBoot -Arguments $bcdBootArgs
-
-                          # The following is added to mitigate the VMM diff disk handling
-                          # We're going to change from MBRBootOption to LocateBootOption.
-
-                            Write-Verbose -Message "Fixing the Device ID in the BCD store on $($VhdFormat)..."
-
-                            $bcdPath | ForEach-Object -Process {
-
-                                Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
-                                    "/store $PSItem",
-                                    "/set `{bootmgr`} device locate"
-                                )
-                                Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
-                                    "/store $PSItem",
-                                    "/set `{default`} device locate"
-                                )
-                                Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
-                                    "/store $PSItem",
-                                    "/set `{default`} osdevice locate"
-                                )
-                            }
                         }
 
-                        Write-Verbose -Message "Drive is bootable."
+                        "Fixed" {
+                            Write-Verbose -Message "Creating fixed disk..."
 
-                      # Are we turning the debugger on?
-                        If ($EnableDebugger -inotlike "None")
-                        {
-                            $bcdEditArgs = $null;
-
-                          # Configure the specified debugging transport and other settings.
-                            Switch ($EnableDebugger)
-                            {
-                                "Serial"
-                                {
-                                    $bcdEditArgs = @(
-
-                                        "/dbgsettings SERIAL",
-                                        "DEBUGPORT:$($ComPort.Value)",
-                                        "BAUDRATE:$($BaudRate.Value)"
-                                    )
-                                }
-
-                                "1394"
-                                {
-                                    $bcdEditArgs = @(
-
-                                        "/dbgsettings 1394",
-                                        "CHANNEL:$($Channel.Value)"
-                                    )
-                                }
-
-                                "USB"
-                                {
-                                    $bcdEditArgs = @(
-
-                                        "/dbgsettings USB",
-                                        "TARGETNAME:$($Target.Value)"
-                                    )
-                                }
-
-                                "Local"
-                                {
-                                    $bcdEditArgs = @(
-
-                                        "/dbgsettings LOCAL"
-                                    )
-                                }
-
-                                "Network"
-                                {
-                                    $bcdEditArgs = @(
-
-                                        "/dbgsettings NET",
-                                        "HOSTIP:$($IP.Value)",
-                                        "PORT:$($Port.Value)",
-                                        "KEY:$($Key.Value)"
-                                    )
-                                }
-                            }
-
-                            $bcdStores = @(
-
-                                "$($systemDrive)\boot\bcd",
-                                "$($systemDrive)\efi\microsoft\boot\bcd"
+                            [WIM2VHD.VirtualHardDisk]::CreateFixedDisk(
+                                $VhdFormat,
+                                $VhdPath,
+                                $SizeBytes,
+                                $true
                             )
+                        }
+                    }
 
-                            Foreach ($bcdStore In $bcdStores)
-                            {
-                                If (Test-Path -Path $bcdStore)
-                                {
-                                    Write-Verbose -Message "Turning kernel debugging on in the $VhdFormat for $bcdStore..."
+                    # Attach the VHD.
 
-                                    Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
+                    Write-Verbose -Message "Attaching $VhdFormat..."
+                    $disk = Mount-DiskImage -ImagePath $VhdPath -PassThru | Get-DiskImage | Get-Disk
+                }
 
-                                        "/store $($bcdStore)",
-                                        "/set `{default`} debug on"
-                                    )
+                Switch ($DiskLayout) {
+                    "BIOS" {
+                        Write-Verbose -Message "Initializing disk..."
+                        Initialize-Disk -Number $disk.Number -PartitionStyle MBR
 
-                                    $bcdEditArguments = @("/store $($bcdStore)") + $bcdEditArgs
+                        # Create the Windows/system partition
+                        Write-Verbose -Message "Creating single partition..."
 
-                                    Start-Executable -Executable "BCDEDIT.EXE" -Arguments $bcdEditArguments
-                                }
+                        $systemPartition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -MbrType IFS -IsActive
+                        $windowsPartition = $systemPartition
+
+                        Write-Verbose -Message "Formatting windows volume..."
+
+                        $systemVolume = Format-Volume -Partition $systemPartition -FileSystem NTFS -Force -Confirm:$false
+                        $windowsVolume = $systemVolume
+                    }
+
+                    "UEFI" {
+                        Write-Verbose -Message "Initializing disk..."
+                        Initialize-Disk -Number $disk.Number -PartitionStyle GPT
+
+                        If ($BcdInVhd -eq "VirtualMachine") {
+                            If (( Get-WindowsBuildNumber ) -ge 10240) {
+
+                                # Create the system partition.  Create a data partition so we can format it, then change to ESP
+                                # Size should be at least 260 MB to accomodate for Native 4K drives.
+                                Write-Verbose -Message "Creating EFI System partition (ESP)..."
+                                $systemPartition = New-Partition -DiskNumber $disk.Number -Size 260MB -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'
+
+                                Write-Verbose -Message "  Formatting System volume..."
+                                $systemVolume = Format-Volume -Partition $systemPartition -FileSystem FAT32 -Force -Confirm:$false
+
+                                Write-Verbose -Message "  Setting partition type to ESP..."
+                                $systemPartition | Set-Partition -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
+                                $systemPartition | Add-PartitionAccessPath -AssignDriveLetter
                             }
-                        }
-                    }
+                            else {
 
-                    Else
-                    {
+                                # Create the system partition
+                                Write-Verbose -Message "Creating EFI system partition (ESP)..."
+                                $systemPartition = New-Partition -DiskNumber $disk.Number -Size 260MB -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}' -AssignDriveLetter
 
-                      # Don't bother to check on debugging.  We can't boot WoA VHDs in VMs, and
-                      # if we're native booting, the changes need to be made to the BCD store on the
-                      # physical computer's boot volume.
+                                Write-Verbose -Message "  Formatting ESP..."
+                                $formatArgs = @(
+                                    "$($systemPartition.DriveLetter):", # Partition drive letter
+                                    "/FS:FAT32", # File system
+                                    "/Q", # Quick format
+                                    "/Y"                                # Suppress prompt
+                                )
 
-                        Write-Verbose -Message "Image applied. It is not bootable."
-                    }
-
-               #endregion BCD manipulation
-
-               #region Additional image enhancements
-
-                    If ($RemoteDesktopEnable -or -not $ExpandOnNativeBoot)
-                    {
-                        $hivePath = Join-Path -Path $windowsDrive -ChildPath "Windows\System32\Config\System"
-
-                        $hive = Mount-RegistryHive -Hive $hivePath
-
-                        If ($RemoteDesktopEnable)
-                        {
-                            Write-Verbose -Message "Enabling Remote Desktop"
-
-                            Set-ItemProperty -Path "HKLM:\$($hive)\ControlSet001\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
-                        }
-
-                        If (-not $ExpandOnNativeBoot)
-                        {
-                            Write-Verbose -Message "Disabling automatic $VhdFormat expansion for Native Boot"
-
-                            Set-ItemProperty -Path "HKLM:\$($hive)\ControlSet001\Services\FsDepends\Parameters" -Name "VirtualDiskExpandOnMount" -Value 4
-                        }
-
-                        Dismount-RegistryHive -HiveMountPoint $hive
-                    }
-
-                    If ($Driver)
-                    {
-                        Write-Verbose -Message "Adding Windows Drivers to the Image"
-
-                        $Driver | ForEach-Object -Process {
-
-                            Write-Verbose -Message "Driver path: $PSItem"
-                            Add-WindowsDriver -Path $windowsDrive -Recurse -Driver $PSItem -Verbose:$False | Out-Null
-                        }
-                    }
-
-                    If ($Feature)
-                    {
-                        Write-Verbose -Message "Installing Windows Feature(s) $Feature to the Image"
-
-                        $FeatureSourcePath = Join-Path -Path "$($driveLetter):" -ChildPath "sources\sxs"
-                        Write-Verbose -Message "From $FeatureSourcePath"
-                        Enable-WindowsOptionalFeature -FeatureName $Feature -Source $FeatureSourcePath -Path $windowsDrive -All -Verbose:$False | Out-Null
-                    }
-
-                    If ($Package)
-                    {
-                        Write-Verbose -Message "Adding Windows Packages to the Image"
-
-                        $Package | ForEach-Object -Process {
-
-                            Write-Verbose -Message "Package path: $PSItem"
-                            Add-WindowsPackage -Path $windowsDrive -PackagePath $PSItem -Verbose:$False | Out-Null
-                        }
-                    }
-
-               #endregion Additional image enhancements
-
-               #region Dispose paths and dismount VHD
-
-                  # Remove system partition access path, if necessary
-                    If ($DiskLayout -eq "UEFI" -and $BcdInVhd -eq "VirtualMachine")
-                    {
-                        Remove-PartitionAccessPath -InputObject $systemPartition -AccessPath $systemPartition.AccessPaths[0] -PassThru | Out-Null
-                    }
-
-                    If ([String]::IsNullOrEmpty( $vhdFinalName ))
-                    {
-
-                      # We need to generate a file name.
-
-                        Write-Verbose -Message "Generating name for $VhdFormat..."
-
-                        $HivePath = Join-Path -Path $windowsDrive -ChildPath "Windows\System32\Config\Software"
-
-                        $hive         = Mount-RegistryHive -Hive $hivePath
-
-                        $buildLabEx   = ( Get-ItemProperty "HKLM:\$($hive)\Microsoft\Windows NT\CurrentVersion" ).BuildLabEx
-                        $installType  = ( Get-ItemProperty "HKLM:\$($hive)\Microsoft\Windows NT\CurrentVersion" ).InstallationType
-                        $editionId    = ( Get-ItemProperty "HKLM:\$($hive)\Microsoft\Windows NT\CurrentVersion" ).EditionID
-                        $skuFamily    = $null
-
-                        Dismount-RegistryHive -HiveMountPoint $hive
-
-                      # Is this ServerCore?
-                      # Since we're only doing this string comparison against the InstallType key, we won't get
-                      # false positives with the Core SKU.
-
-                        If ($installType.ToUpper().Contains("CORE"))
-                        {
-                            $editionId += "Core"
-                        }
-
-                      # What type of SKU are we?
-
-                        If ($installType.ToUpper().Contains("SERVER"))
-                        {
-                            $skuFamily = "Server"
-                        }
-                        ElseIf ($installType.ToUpper().Contains("CLIENT"))
-                        {
-                            $skuFamily = "Client"
-                        }
-                        Else
-                        {
-                            $skuFamily = "Unknown"
-                        }
-
-                      # ISSUE - do we want VL here?
-
-                        $vhdFinalName = "$($buildLabEx)_$($skuFamily)_$($editionId)_$($openImage.ImageDefaultLanguage).$($VhdFormat.ToLower())"
-                        Write-Debug -Message "    $VhdFormat final name is: `"$vhdFinalName`""
-                    }
-
-                    If ($hyperVEnabled)
-                    {
-                        Write-Verbose -Message "Dismounting $VhdFormat..."
-                        Dismount-VHD -Path $VhdPath
-                    }
-                    Else
-                    {
-                        Write-Verbose -Message "Closing $VhdFormat..."
-                        If((Get-Command Dismount-DiskImage).parameters.Keys.Contains("PassThru")) {
-                            $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath -PassThru
+                                Start-Executable -Executable format -Arguments $formatArgs
+                            }
                         }
                         Else {
-                            $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath    
+                            Write-Verbose -Message "The disk is intended for Native Boot. There will be no EFI System partition (ESP)."
+                        }
+
+                        # Create the Windows partition
+                        Write-Verbose -Message "Creating Boot (`"Windows`") partition..."
+                        $windowsPartition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -GptType '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'
+
+                        Write-Verbose -Message "  Formatting Boot (`"Windows`") volume..."
+                        $windowsVolume = Format-Volume -Partition $windowsPartition -FileSystem NTFS -Force -Confirm:$false
+                    }
+
+                    "WindowsToGo" {
+                        Write-Verbose -Message "Initializing disk..."
+                        Initialize-Disk -Number $disk.Number -PartitionStyle MBR
+
+                        # Create the system partition
+                        Write-Verbose -Message "Creating system partition..."
+                        $systemPartition = New-Partition -DiskNumber $disk.Number -Size 260MB -MbrType FAT32 -IsActive
+
+                        Write-Verbose -Message "  Formatting system volume..."
+                        $systemVolume = Format-Volume -Partition $systemPartition -FileSystem FAT32 -Force -Confirm:$false
+
+                        # Create the Windows partition
+                        Write-Verbose -Message "Creating windows partition..."
+                        $windowsPartition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -MbrType IFS
+
+                        Write-Verbose -Message "  Formatting windows volume..."
+                        $windowsVolume = Format-Volume -Partition $windowsPartition -FileSystem NTFS -Force -Confirm:$false
+                    }
+                }
+
+                If (( $DiskLayout -eq "UEFI" -and $BcdInVhd -eq "VirtualMachine" ) -or
+                    ( $DiskLayout -eq "WindowsToGo") -or
+                    ( $DiskLayout -eq "BIOS")) {
+                    # Retreive access path for System partition.
+                    $systemPartition = Get-Partition -UniqueId $systemPartition.UniqueId
+                    $systemDrive = $systemPartition.AccessPaths[0].trimend("\").replace("\?", "??")
+                    Write-Verbose -Message "System volume path: `"$systemDrive`""
+                }
+
+                # Assign drive letter to Boot partition.  This is required for bcdboot
+                $attempts = 1
+                $assigned = $false
+
+                Do {
+                    $windowsPartition | Add-PartitionAccessPath -AssignDriveLetter
+                    $windowsPartition = $windowsPartition | Get-Partition
+
+                    If ($windowsPartition.DriveLetter -ne 0) {
+                        $assigned = $true
+                    }
+                    else {
+
+                        # sleep for up to 10 seconds and retry
+                        Get-Random -Minimum 1 -Maximum 10 | Start-Sleep
+
+                        $attempts++
+                    }
+                }
+                While ($attempts -le 100 -and -not $assigned)
+
+                If (-Not $assigned) {
+                    Throw "Unable to get Partition after retry"
+                }
+
+                $windowsDrive = ( Get-Partition -Volume $windowsVolume ).AccessPaths[0].substring(0, 2)
+
+                # This is to workaround "No such drive exists" error in PowerShell
+                $Drive = Get-PSDrive
+
+                $windowsDrive = ( Resolve-Path -Path $windowsDrive ).Path
+
+                Write-Verbose -Message "Boot volume path: `"$windowsDrive`". (Took $attempts attempt(s) to assign.)"
+
+                #endregion Create and partition VHD
+
+                #region APPLY IMAGE FROM WIM TO THE NEW VHD
+
+                Write-Verbose -Message "Applying image to $VhdFormat. This could take a while..."
+
+                If (( Get-Command -Name "Expand-WindowsImage" -ErrorAction "SilentlyContinue" ) -and
+                    ( -not $ApplyEA -and [string]::IsNullOrEmpty( $DismPath ) )) {
+                    Expand-WindowsImage -ApplyPath $windowsDrive -ImagePath $SourcePath -Index $ImageIndex -LogPath "$($logFolder)\DismLogs.log" -Verbose:$False | Out-Null
+                }
+                Else {
+                    If ([string]::IsNullOrEmpty( $DismPath )) {
+                        $DismPath = Join-Path -Path $env:windir -ChildPath "system32\dism.exe"
+                    }
+
+                    $applyImage = "/Apply-Image"
+
+                    If ($ApplyEA) {
+                        $applyImage = $applyImage + " /EA"
+                    }
+
+                    $dismArgs = @("$applyImage /ImageFile:`"$SourcePath`" /Index:$ImageIndex /ApplyDir:$windowsDrive /LogPath:`"$($logFolder)\DismLogs.log`"")
+
+                    Write-Verbose -Message "Applying image: $dismPath $dismArgs"
+
+                    $process = Start-Process -PassThru -Wait -NoNewWindow -FilePath $dismPath -ArgumentList $dismArgs
+
+                    If ($process.ExitCode -ne 0) {
+                        Throw "Image Apply failed! See DismImageApply logs for details"
+                    }
+                }
+                Write-Verbose -Message "Image was applied successfully. "
+
+                # Here we copy in the unattend file (if specified by the command line)
+
+                If (-Not [string]::IsNullOrEmpty( $UnattendPath )) {
+                    Write-Verbose -Message "Applying unattend file ($(Split-Path $UnattendPath -Leaf))..."
+
+                    $UnattendDestination = Join-Path -Path $windowsDrive -ChildPath "unattend.xml"
+                    Copy-Item -Path $UnattendPath -Destination $UnattendDestination -Force
+                }
+
+                # Added to handle merge folders
+
+                If (-Not [string]::IsNullOrEmpty( $MergeFolderPath )) {
+                    Write-Verbose -Message "Applying merge folder ($MergeFolderPath)..."
+
+                    $MergeSourcePath = Join-Path -Path $MergeFolderPath -ChildPath "*"
+
+                    Copy-Item -Recurse -Path $MergeFolderPath -Destination $windowsDrive -Force
+                }
+
+                #endregion APPLY IMAGE FROM WIM TO THE NEW VHD
+
+                #region BCD manipulation
+
+                If (( $openImage.ImageArchitecture -ne "ARM" ) -and # No virtualization platform for ARM images
+                    ( $BcdInVhd -ne "NativeBoot" )) { # User asked for a non-bootable image
+                    If (Test-Path -Path "$($systemDrive)\boot\bcd") {
+                        Write-Verbose -Message "Image already has BIOS BCD store..."
+                    }
+                    ElseIf (Test-Path -Path "$($systemDrive)\efi\microsoft\boot\bcd") {
+                        Write-Verbose -Message "Image already has EFI BCD store..."
+                    }
+                    Else {
+                        Write-Verbose -Message "Making image bootable..."
+
+                        $WindowsPath = Join-Path -Path $windowsDrive -ChildPath "Windows"
+
+                        $bcdBootArgs = @(
+
+                            "$WindowsPath", # Path to the \Windows on the VHD
+                            "/s $systemDrive", # Specifies the volume letter of the drive to create the \BOOT folder on.
+                            "/v"                        # Enabled verbose logging.
+                        )
+
+                        $bcdPath = @()
+
+                        Switch ($DiskLayout) {
+                            "BIOS" {
+                                $bcdBootArgs += "/f BIOS"   # Specifies the firmware type of the target system partition
+                                $bcdPath += Join-Path -Path $systemDrive -ChildPath "boot\bcd"
+                            }
+
+                            "UEFI" {
+                                $bcdBootArgs += "/f UEFI"   # Specifies the firmware type of the target system partition
+                                $bcdPath += Join-Path -Path $systemDrive -ChildPath "efi\microsoft\boot\bcd"
+                            }
+
+                            "WindowsToGo" {
+
+                                # Create entries for both UEFI and BIOS if possible
+
+                                If (Test-Path -Path "$($windowsDrive)\Windows\boot\EFI\bootmgfw.efi") {
+                                    $bcdBootArgs += "/f ALL"
+                                    $bcdPath += Join-Path -Path $systemDrive -ChildPath "boot\bcd"
+                                    $bcdPath += Join-Path -Path $systemDrive -ChildPath "efi\microsoft\boot\bcd"
+                                }
+                                Else {
+                                    $bcdBootArgs += "/f BIOS"   # Specifies the firmware type of the target system partition
+                                    $bcdPath += Join-Path -Path $systemDrive -ChildPath "boot\bcd"
+                                }
+                            }
+                        }
+
+                        If (Test-Path -Path "Variable:\BcdLocale") {
+                            $bcdBootArgs += "/l $BcdLocale.Name"
+                        }
+
+                        Start-Executable -Executable $BCDBoot -Arguments $bcdBootArgs
+
+                        # The following is added to mitigate the VMM diff disk handling
+                        # We're going to change from MBRBootOption to LocateBootOption.
+
+                        Write-Verbose -Message "Fixing the Device ID in the BCD store on $($VhdFormat)..."
+
+                        $bcdPath | ForEach-Object -Process {
+
+                            Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
+                                "/store $PSItem",
+                                "/set `{bootmgr`} device locate"
+                            )
+                            Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
+                                "/store $PSItem",
+                                "/set `{default`} device locate"
+                            )
+                            Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
+                                "/store $PSItem",
+                                "/set `{default`} osdevice locate"
+                            )
                         }
                     }
 
-                    $vhdParentPath = Split-Path -Path $VhdPath -Parent
-                    $vhdFinalPath  = Join-Path  -Path $vhdParentPath -ChildPath $vhdFinalName
+                    Write-Verbose -Message "Drive is bootable."
 
-                    Write-Debug -Message "    $VhdFormat final path is: `"$vhdFinalPath`""
+                    # Are we turning the debugger on?
+                    If ($EnableDebugger -inotlike "None") {
+                        $bcdEditArgs = $null;
 
-                    If (Test-Path -Path $vhdFinalPath)
-                    {
-                        $VhdNameOld = Split-Path -Path $vhdFinalPath -Leaf
+                        # Configure the specified debugging transport and other settings.
+                        Switch ($EnableDebugger) {
+                            "Serial" {
+                                $bcdEditArgs = @(
 
-                        Write-Verbose -Message "Deleting pre-existing $($VhdFormat): `"$VhdNameOld`"..."
+                                    "/dbgsettings SERIAL",
+                                    "DEBUGPORT:$($ComPort.Value)",
+                                    "BAUDRATE:$($BaudRate.Value)"
+                                )
+                            }
 
-                        Remove-Item -Path $vhdFinalPath -Force
+                            "1394" {
+                                $bcdEditArgs = @(
+
+                                    "/dbgsettings 1394",
+                                    "CHANNEL:$($Channel.Value)"
+                                )
+                            }
+
+                            "USB" {
+                                $bcdEditArgs = @(
+
+                                    "/dbgsettings USB",
+                                    "TARGETNAME:$($Target.Value)"
+                                )
+                            }
+
+                            "Local" {
+                                $bcdEditArgs = @(
+
+                                    "/dbgsettings LOCAL"
+                                )
+                            }
+
+                            "Network" {
+                                $bcdEditArgs = @(
+
+                                    "/dbgsettings NET",
+                                    "HOSTIP:$($IP.Value)",
+                                    "PORT:$($Port.Value)",
+                                    "KEY:$($Key.Value)"
+                                )
+                            }
+                        }
+
+                        $bcdStores = @(
+
+                            "$($systemDrive)\boot\bcd",
+                            "$($systemDrive)\efi\microsoft\boot\bcd"
+                        )
+
+                        Foreach ($bcdStore In $bcdStores) {
+                            If (Test-Path -Path $bcdStore) {
+                                Write-Verbose -Message "Turning kernel debugging on in the $VhdFormat for $bcdStore..."
+
+                                Start-Executable -Executable "BCDEDIT.EXE" -Arguments (
+
+                                    "/store $($bcdStore)",
+                                    "/set `{default`} debug on"
+                                )
+
+                                $bcdEditArguments = @("/store $($bcdStore)") + $bcdEditArgs
+
+                                Start-Executable -Executable "BCDEDIT.EXE" -Arguments $bcdEditArguments
+                            }
+                        }
+                    }
+                }
+
+                Else {
+
+                    # Don't bother to check on debugging.  We can't boot WoA VHDs in VMs, and
+                    # if we're native booting, the changes need to be made to the BCD store on the
+                    # physical computer's boot volume.
+
+                    Write-Verbose -Message "Image applied. It is not bootable."
+                }
+
+                #endregion BCD manipulation
+
+                #region Additional image enhancements
+
+                If ($RemoteDesktopEnable -or -not $ExpandOnNativeBoot) {
+                    $hivePath = Join-Path -Path $windowsDrive -ChildPath "Windows\System32\Config\System"
+
+                    $hive = Mount-RegistryHive -Hive $hivePath
+
+                    If ($RemoteDesktopEnable) {
+                        Write-Verbose -Message "Enabling Remote Desktop"
+
+                        Set-ItemProperty -Path "HKLM:\$($hive)\ControlSet001\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0
                     }
 
-                    Write-Debug -Message "    Renaming $VhdFormat at `"$VhdPath`"."
+                    If (-not $ExpandOnNativeBoot) {
+                        Write-Verbose -Message "Disabling automatic $VhdFormat expansion for Native Boot"
 
-                    $VhdPathFull = ( Resolve-Path -Path $VhdPath ).Path
+                        Set-ItemProperty -Path "HKLM:\$($hive)\ControlSet001\Services\FsDepends\Parameters" -Name "VirtualDiskExpandOnMount" -Value 4
+                    }
 
-                    $RenameItem = Rename-Item -Path $VhdPathFull -NewName $vhdFinalName -Force -PassThru
+                    Dismount-RegistryHive -HiveMountPoint $hive
+                }
 
-                    $vhd += Get-DiskImage -ImagePath $vhdFinalPath
+                If ($Driver) {
+                    Write-Verbose -Message "Adding Windows Drivers to the Image"
 
-                    $vhdFinalName = $null
+                    $Driver | ForEach-Object -Process {
 
-               #endregion Dispose paths and dismount images
+                        Write-Verbose -Message "Driver path: $PSItem"
+                        Add-WindowsDriver -Path $windowsDrive -Recurse -Driver $PSItem -Verbose:$False | Out-Null
+                    }
+                }
+
+                If ($Feature) {
+                    Write-Verbose -Message "Installing Windows Feature(s) $Feature to the Image"
+
+                    $FeatureSourcePath = Join-Path -Path "$($driveLetter):" -ChildPath "sources\sxs"
+                    Write-Verbose -Message "From $FeatureSourcePath"
+                    Enable-WindowsOptionalFeature -FeatureName $Feature -Source $FeatureSourcePath -Path $windowsDrive -All -Verbose:$False | Out-Null
+                }
+
+                If ($Package) {
+                    Write-Verbose -Message "Adding Windows Packages to the Image"
+
+                    $Package | ForEach-Object -Process {
+
+                        Write-Verbose -Message "Package path: $PSItem"
+                        Add-WindowsPackage -Path $windowsDrive -PackagePath $PSItem -Verbose:$False | Out-Null
+                    }
+                }
+
+                #endregion Additional image enhancements
+
+                #region Dispose paths and dismount VHD
+
+                # Remove system partition access path, if necessary
+                If ($DiskLayout -eq "UEFI" -and $BcdInVhd -eq "VirtualMachine") {
+                    Remove-PartitionAccessPath -InputObject $systemPartition -AccessPath $systemPartition.AccessPaths[0] -PassThru | Out-Null
+                }
+
+                If ([String]::IsNullOrEmpty( $vhdFinalName )) {
+
+                    # We need to generate a file name.
+
+                    Write-Verbose -Message "Generating name for $VhdFormat..."
+
+                    $HivePath = Join-Path -Path $windowsDrive -ChildPath "Windows\System32\Config\Software"
+
+                    $hive = Mount-RegistryHive -Hive $hivePath
+
+                    $buildLabEx = ( Get-ItemProperty "HKLM:\$($hive)\Microsoft\Windows NT\CurrentVersion" ).BuildLabEx
+                    $installType = ( Get-ItemProperty "HKLM:\$($hive)\Microsoft\Windows NT\CurrentVersion" ).InstallationType
+                    $editionId = ( Get-ItemProperty "HKLM:\$($hive)\Microsoft\Windows NT\CurrentVersion" ).EditionID
+                    $skuFamily = $null
+
+                    Dismount-RegistryHive -HiveMountPoint $hive
+
+                    # Is this ServerCore?
+                    # Since we're only doing this string comparison against the InstallType key, we won't get
+                    # false positives with the Core SKU.
+
+                    If ($installType.ToUpper().Contains("CORE")) {
+                        $editionId += "Core"
+                    }
+
+                    # What type of SKU are we?
+
+                    If ($installType.ToUpper().Contains("SERVER")) {
+                        $skuFamily = "Server"
+                    }
+                    ElseIf ($installType.ToUpper().Contains("CLIENT")) {
+                        $skuFamily = "Client"
+                    }
+                    Else {
+                        $skuFamily = "Unknown"
+                    }
+
+                    # ISSUE - do we want VL here?
+
+                    $vhdFinalName = "$($buildLabEx)_$($skuFamily)_$($editionId)_$($openImage.ImageDefaultLanguage).$($VhdFormat.ToLower())"
+                    Write-Debug -Message "    $VhdFormat final name is: `"$vhdFinalName`""
+                }
+
+                If ($hyperVEnabled) {
+                    Write-Verbose -Message "Dismounting $VhdFormat..."
+                    Dismount-VHD -Path $VhdPath
+                }
+                Else {
+                    Write-Verbose -Message "Closing $VhdFormat..."
+                    If ((Get-Command Dismount-DiskImage).parameters.Keys.Contains("PassThru")) {
+                        $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath -PassThru
+                    }
+                    Else {
+                        $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath
+                    }
+                }
+
+                $vhdParentPath = Split-Path -Path $VhdPath -Parent
+                $vhdFinalPath = Join-Path  -Path $vhdParentPath -ChildPath $vhdFinalName
+
+                Write-Debug -Message "    $VhdFormat final path is: `"$vhdFinalPath`""
+
+                If (Test-Path -Path $vhdFinalPath) {
+                    $VhdNameOld = Split-Path -Path $vhdFinalPath -Leaf
+
+                    Write-Verbose -Message "Deleting pre-existing $($VhdFormat): `"$VhdNameOld`"..."
+
+                    Remove-Item -Path $vhdFinalPath -Force
+                }
+
+                Write-Debug -Message "    Renaming $VhdFormat at `"$VhdPath`"."
+
+                $VhdPathFull = ( Resolve-Path -Path $VhdPath ).Path
+
+                $RenameItem = Rename-Item -Path $VhdPathFull -NewName $vhdFinalName -Force -PassThru
+
+                $vhd += Get-DiskImage -ImagePath $vhdFinalPath
+
+                $vhdFinalName = $null
+
+                #endregion Dispose paths and dismount images
             }
         }
-        Catch
-        {
+        Catch {
             Write-Verbose -Message ( [system.string]::Empty )
             Write-Error   -Message $PSItem
             Write-Verbose -Message "Log folder is `"$logFolder`""
         }
-        Finally
-        {
+        Finally {
             Write-Verbose -Message ( [system.string]::Empty )
 
-          # If we still have a WIM image open, close it.
-            If ($openWim -ne $null)
-            {
+            # If we still have a WIM image open, close it.
+            If ($openWim -ne $null) {
                 Write-Verbose -Message "Closing Windows image..."
 
                 $openWim.Close()
             }
 
-          # If we still have a registry hive mounted, dismount it.
-            If ($mountedHive -ne $null)
-            {
+            # If we still have a registry hive mounted, dismount it.
+            If ($mountedHive -ne $null) {
                 Write-Verbose -Message "Closing registry hive..."
 
                 Dismount-RegistryHive -HiveMountPoint $mountedHive
             }
 
-          # If VHD is mounted, unmount it
-            If (Test-Path -Path $VhdPath)
-            {
-                If ($hyperVEnabled)
-                {
-                    If (( Get-VHD -Path $VhdPath ).Attached)
-                    {
+            # If VHD is mounted, unmount it
+            If (Test-Path -Path $VhdPath) {
+                If ($hyperVEnabled) {
+                    If (( Get-VHD -Path $VhdPath ).Attached) {
                         Dismount-VHD -Path $VhdPath
                     }
                 }
-                Else
-                {
-                    If((Get-Command Dismount-DiskImage).parameters.Keys.Contains("PassThru")) {
+                Else {
+                    If ((Get-Command Dismount-DiskImage).parameters.Keys.Contains("PassThru")) {
                         $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath -PassThru
                     }
                     Else {
-                        $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath    
+                        $DismountDiskImage = Dismount-DiskImage -ImagePath $VhdPath
                     }
                 }
             }
 
-          # If we still have an ISO open, close it.
-            If ($openIso -ne $Null)
-            {
+            # If we still have an ISO open, close it.
+            If ($openIso -ne $Null) {
                 Write-Verbose -Message "Closing ISO..."
-                If((Get-Command Dismount-DiskImage).parameters.Keys.Contains("PassThru")) {
+                If ((Get-Command Dismount-DiskImage).parameters.Keys.Contains("PassThru")) {
                     $DismountDiskImage = Dismount-DiskImage -ImagePath $IsoPath -PassThru
                 }
                 Else {
-                    $DismountDiskImage = Dismount-DiskImage -ImagePath $IsoPath    
+                    $DismountDiskImage = Dismount-DiskImage -ImagePath $IsoPath
                 }
             }
 
-            If (-not $CacheSource)
-            {
-                If ($tempSource -and ( Test-Path -Path $tempSource ))
-                {
+            If (-not $CacheSource) {
+                If ($tempSource -and ( Test-Path -Path $tempSource )) {
                     $Item = Remove-Item -Path $tempSource -Force
                 }
             }
 
-          # Close out the transcript and tell the user we're done.
+            # Close out the transcript and tell the user we're done.
             Write-Verbose -Message "Done."
 
-            If ($transcripting)
-            {
+            If ($transcripting) {
                 $Null = Stop-Transcript
             }
         }
     }
-    End 
-    {
+    End {
 
-        If ($Passthru)
-        {
+        If ($Passthru) {
             Return $vhd
         }
     }
 
-   #endregion Code
+    #endregion Code
 }
 
 # Helper functions. Not intended to be called outside of Convert-WindowsImage.
 
 Function
-Add-WindowsImageTypes
-{
+Add-WindowsImageTypes {
     $Code = @"
 
 using System;
@@ -4255,7 +4117,7 @@ VirtualHardDisk
 }
 "@
 
-    Add-Type -TypeDefinition $code -ReferencedAssemblies "System.Xml","System.Linq","System.Xml.Linq" -ErrorAction SilentlyContinue
+    Add-Type -TypeDefinition $code -ReferencedAssemblies "System.Xml", "System.Linq", "System.Xml.Linq" -ErrorAction SilentlyContinue
 }
 
 # This is required for renewed "Mount-RegistryHive" and "Dismount-RegistryHive"
@@ -4263,12 +4125,11 @@ VirtualHardDisk
 # http://www.leeholmes.com/blog/2010/09/24/adjusting-token-privileges-in-powershell/
 
 Function
-Set-TokenPrivilege
-{
+Set-TokenPrivilege {
     param(
 
-      # The privilege to adjust. This set is taken from
-      # http://msdn.microsoft.com/library/bb530716
+        # The privilege to adjust. This set is taken from
+        # http://msdn.microsoft.com/library/bb530716
 
         [ValidateSet(
 
@@ -4310,15 +4171,15 @@ Set-TokenPrivilege
         )]
         $Privilege,
 
-      # The process on which to adjust the privilege. Defaults to the current process.
+        # The process on which to adjust the privilege. Defaults to the current process.
         $ProcessId = $pid,
 
-      # Switch to disable the privilege, rather than enable it.
+        # Switch to disable the privilege, rather than enable it.
         [Switch]
         $Disable
     )
 
-  # Taken from P/Invoke.NET with minor adjustments.
+    # Taken from P/Invoke.NET with minor adjustments.
     $Definition = @'
 
     using System;
@@ -4384,7 +4245,7 @@ Set-TokenPrivilege
     }
 '@
 
-    $processHandle = ( Get-Process -id $ProcessId ).Handle
+    $processHandle = ( Get-Process -Id $ProcessId ).Handle
 
     $Type = Add-Type -TypeDefinition $Definition -PassThru
 
@@ -4395,27 +4256,25 @@ Set-TokenPrivilege
 # reg.exe to native Windows API.
 
 Function
-Mount-RegistryHive
-{
+Mount-RegistryHive {
     [CmdletBinding()]
     param(
         [Parameter(
-            Mandatory         = $True,
+            Mandatory = $True,
             ValueFromPipeline = $True,
-            Position          = 0
+            Position = 0
         )]
         [System.IO.FileInfo]
         [ValidateNotNullOrEmpty()]
         [ValidateScript(
             { $_.Exists }
-           )]
+        )]
         $Hive
     )
 
     $mountKey = [System.Guid]::NewGuid().ToString()
 
-    Try
-    {
+    Try {
         $Definition = @"
 
 [DllImport("advapi32.dll", SetLastError=true)]
@@ -4433,35 +4292,32 @@ public static extern long RegLoadKey(int hKey, String lpSubKey, String lpFile);
         $Result = $Reg::RegLoadKey( $HKLM, $mountKey, $Hive )
 
     }
-    Catch
-    {
+    Catch {
         Throw
     }
 
-  # Set a global variable containing the name of the mounted registry key
-  # so we can unmount it if there's an error.
+    # Set a global variable containing the name of the mounted registry key
+    # so we can unmount it if there's an error.
     $global:mountedHive = $mountKey
 
     return $mountKey
 }
 
 Function
-Dismount-RegistryHive
-{
+Dismount-RegistryHive {
     [CmdletBinding()]
     param(
         [Parameter(
-            Mandatory         = $True,
+            Mandatory = $True,
             ValueFromPipeline = $True,
-            Position          = 0
+            Position = 0
         )]
         [string]
         [ValidateNotNullOrEmpty()]
         $HiveMountPoint
     )
 
-    Try
-    {
+    Try {
         $Definition = @"
 
 [DllImport("advapi32.dll", SetLastError=true)]
@@ -4479,8 +4335,7 @@ public static extern int RegUnLoadKey(Int32 hKey,string lpSubKey);
         $Result = $Reg::RegUnLoadKey( $HKLM, $HiveMountPoint )
 
     }
-    Catch
-    {
+    Catch {
         Throw
     }
 
@@ -4500,8 +4355,7 @@ public static extern int RegUnLoadKey(Int32 hKey,string lpSubKey);
 #>
 
 Function
-Test-Admin
-{
+Test-Admin {
     [CmdletBinding()]
     param()
 
@@ -4515,15 +4369,13 @@ Test-Admin
 }
 
 Function
-Get-WindowsBuildNumber
-{
+Get-WindowsBuildNumber {
     $os = Get-CimInstance -ClassName "Win32_OperatingSystem" -Verbose:$False
     Return [int]($os.BuildNumber)
 }
 
 Function
-Test-WindowsVersion
-{
+Test-WindowsVersion {
     $isWin8 = ( Get-WindowsBuildNumber ) -ge [int]$lowestSupportedBuild
 
     Write-Debug -Message "  is current OS supported?  $isWin8"
@@ -4547,16 +4399,15 @@ Test-WindowsVersion
 #>
 
 Function
-Start-Executable
-{
+Start-Executable {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]
         [ValidateNotNullOrEmpty()]
         $Executable,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string[]]
         [ValidateNotNullOrEmpty()]
         $Arguments,
@@ -4583,8 +4434,7 @@ Start-Executable
 
     Write-Debug -Message "    Return code was $($ret.ExitCode)."
 
-    If ($ret.ExitCode -ne $SuccessfulErrorCode)
-    {
+    If ($ret.ExitCode -ne $SuccessfulErrorCode) {
         throw "$Executable failed with code $($ret.ExitCode)!"
     }
 }
@@ -4602,8 +4452,7 @@ Start-Executable
 #>
 
 Function
-Test-IsNetworkLocation
-{
+Test-IsNetworkLocation {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeLine = $true)]
@@ -4614,16 +4463,13 @@ Test-IsNetworkLocation
 
     $Result = $False
 
-    If ([Bool]( [URI]$Path ).IsUNC)
-    {
+    If ([Bool]( [URI]$Path ).IsUNC) {
         $Result = $True
     }
-    else
-    {
+    else {
         $driveInfo = [IO.DriveInfo]( ( Resolve-Path -Path $Path ).Path )
 
-        If ($driveInfo.DriveType -eq "Network")
-        {
+        If ($driveInfo.DriveType -eq "Network") {
             $Result = $True
         }
     }
@@ -4634,78 +4480,71 @@ Test-IsNetworkLocation
 # Import module silently
 
 Function
-Import-ModuleEx
-{
+Import-ModuleEx {
 
-   #region Data
+    #region Data
 
-        [cmdletbinding()]
+    [cmdletbinding()]
 
-        Param(
+    Param(
 
-            [parameter(
-                ParameterSetName = "Name",
-                Mandatory        =  $True
-            )]
-            [System.String]
-            $Name,
-            [parameter(
-                ParameterSetName = "ModuleInfo",
-                Mandatory        =  $True
-            )]
-            [System.Management.Automation.PSModuleInfo]
-            $ModuleInfo
-        )
+        [parameter(
+            ParameterSetName = "Name",
+            Mandatory = $True
+        )]
+        [System.String]
+        $Name,
+        [parameter(
+            ParameterSetName = "ModuleInfo",
+            Mandatory = $True
+        )]
+        [System.Management.Automation.PSModuleInfo]
+        $ModuleInfo
+    )
 
-   #endregion Data
+    #endregion Data
 
-   #region Code
+    #region Code
 
-      # When we have $VerbosePreference defined as "Continue" and import
-      # a module (either implicitly, by firt use, or explictily, calling
-      # "Import-Module"), there's a lot of Verbose output listing every cmdlet
-      # and every function. This output provides no value, thus we need
-      # to suppress it. Unfortunately, even if we pass "-Verobse:$False"
-      # to "Import-Module", it only helps to swallow the list of cmdlets.
-      # The list of functions is still thrown to output. (This is probably
-      # a bug). Thus, we need to temporary change $VerbosePreference.
+    # When we have $VerbosePreference defined as "Continue" and import
+    # a module (either implicitly, by firt use, or explictily, calling
+    # "Import-Module"), there's a lot of Verbose output listing every cmdlet
+    # and every function. This output provides no value, thus we need
+    # to suppress it. Unfortunately, even if we pass "-Verobse:$False"
+    # to "Import-Module", it only helps to swallow the list of cmdlets.
+    # The list of functions is still thrown to output. (This is probably
+    # a bug). Thus, we need to temporary change $VerbosePreference.
 
-        $VerbosePreferenceCurrent = $VerbosePreference
-        $Global:VerbosePreference = "SilentlyContinue"
+    $VerbosePreferenceCurrent = $VerbosePreference
+    $Global:VerbosePreference = "SilentlyContinue"
 
-        If (Test-Path -Path "Variable:\ModuleInternal")
-        {
-          # $Item = Remove-Item -Path "Variable:\ModuleInternal" -Confirm:$false
+    If (Test-Path -Path "Variable:\ModuleInternal") {
+        # $Item = Remove-Item -Path "Variable:\ModuleInternal" -Confirm:$false
 
-          # Remove-Variable -Name "Module" -Scope "Global"
-          # Remove-Variable -Name "Module" -Scope "Local"
-            Remove-Variable -Name "Module" -Scope "Script"
-        }
+        # Remove-Variable -Name "Module" -Scope "Global"
+        # Remove-Variable -Name "Module" -Scope "Local"
+        Remove-Variable -Name "Module" -Scope "Script"
+    }
 
-        Switch ($PsCmdlet.ParameterSetName)
-        {
-            "Name"
-            {
-                If (( Get-Module -Name $Name -ListAvailable ) -Or
-                    ( Test-Path  -Path $Name ))
-                {
-                    $ModuleInternal = Import-Module -Name $Name -PassThru -WarningAction Ignore
-                }
-            }
-
-            "ModuleInfo"
-            {
-                $ModuleInternal = Import-Module -ModuleInfo $ModuleInfo -PassThru -WarningAction Ignore
+    Switch ($PsCmdlet.ParameterSetName) {
+        "Name" {
+            If (( Get-Module -Name $Name -ListAvailable ) -Or
+                ( Test-Path  -Path $Name )) {
+                $ModuleInternal = Import-Module -Name $Name -PassThru -WarningAction Ignore
             }
         }
 
-        $Global:VerbosePreference = $VerbosePreferenceCurrent
-
-        If (Test-Path -Path "Variable:\ModuleInternal")
-        {
-            Return $ModuleInternal
+        "ModuleInfo" {
+            $ModuleInternal = Import-Module -ModuleInfo $ModuleInfo -PassThru -WarningAction Ignore
         }
+    }
 
-   #endregion Code
+    $Global:VerbosePreference = $VerbosePreferenceCurrent
+
+    If (Test-Path -Path "Variable:\ModuleInternal") {
+        Return $ModuleInternal
+    }
+
+    #endregion Code
 
 }
